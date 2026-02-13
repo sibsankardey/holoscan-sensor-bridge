@@ -48,7 +48,7 @@ class ADCAMEXPANDER:
             read_byte_count,
             timeout=timeout,
         )
-        print("Expander", self._expan_addr, "byte_count = ", read_byte_count)
+        # print("Expander", self._expan_addr, "byte_count = ", read_byte_count)
 
 
 class polarfireGpio:
@@ -75,7 +75,7 @@ class polarfireGpio:
         # how many pins are supported on the platform running the example
         self._supported_pins_number = self._gpio.get_supported_pin_num()
 
-        print("Totel supported GPIOs = ", self._supported_pins_number)
+        logging.info(f"Totel supported GPIOs = {self._supported_pins_number}")
 
     def setup(self):
         # spec.output("gpio_changed_out")
@@ -83,7 +83,7 @@ class polarfireGpio:
 
         # set all gpios as output, high - test fast setting via loop
         for i in range(self._supported_pins_number):
-            print("Left as it pin =", i)
+            logging.debug(f"GPIO left as is = {i}")
 
     def pull_reset_low(self, pin):
         self._gpio.set_direction(self.pin, self._gpio.OUT)
@@ -125,15 +125,15 @@ class adcam:
         )
 
     def get_version(self):
-        logging.info("Fatching Chip version")
+        logging.debug("Fatching Chip version")
         REGISTER = 0x0112
         resp = self.set_register16_response(REGISTER, 2)
-        logging.info(f"Response = {resp}")
+        logging.debug(f"Response = {resp}")
 
         # Fetch status
         REGISTER = 0x0020
         resp = self.set_register16_response(REGISTER, 2)
-        logging.info(f"Response = {resp}")
+        logging.debug(f"Response = {resp}")
 
         return resp
 
@@ -160,24 +160,23 @@ class adcam:
         return self.bytes_to_uint16_array(self.registers_to_byte_array(reg))
 
     def set_mipi(self):
-        logging.info("Setting MIPI speed")
+        logging.debug("Setting MIPI speed")
         # REGISTER = 0x00310003 #1.5gbps
         REGISTER = 0x00310004  # 1gbps
         # REGISTER = 0x00310001 #2.5gbps
         self.set_register16_no_response(REGISTER)
 
-        logging.info("Enabling deskew")
+        logging.debug("Enabling deskew")
         REGISTER = 0x00AB0001
         self.set_register16_no_response(REGISTER)
 
     def set_mode(self):
-        print("Setting QMP mode")
-        logging.info("Setting QMP mode")
+        logging.debug("Setting QMP mode")
         REGISTER = 0xDA06280F
         self.set_register16_no_response(REGISTER)
 
     def read_nvm_config(self):
-        logging.info("Reading NVM Config")
+        logging.debug("Reading NVM Config")
         time.sleep(1)
         REGISTER = 0x00190000
         self.set_register16_no_response(REGISTER)
@@ -190,41 +189,49 @@ class adcam:
         # Read NVM header
         REGISTER = 0xAD000013000000001300000001000000
         resp = self.set_register16_response(REGISTER, 44)
-        logging.info(f"NVM Header = {resp}")
-        print("NVM Header = ", resp)
+        logging.debug(f"NVM Header = {resp}")
 
         # Read fw version
         REGISTER = 0xAD002C05000000003100000001000000
         resp = self.set_register16_response(REGISTER, 44)
-        logging.info(f"Firmware ID = {resp}")
-        print("FW ID = ", resp)
+        logging.debug(f"Firmware ID = {resp}")
 
         # turn off burst mode
         REGISTER = 0xAD000010000000001000000000000000
         REGISTER = 0xAD000010000000001000000001000000
         self.set_register16_no_response(REGISTER)
-        logging.info("Reading NVM Config done")
+        logging.debug("Reading NVM Config done")
 
     def get_status(self):
-        logging.info("Fatching status")
+        logging.debug("Fatching status")
         # Get Status
         REGISTER = 0x0020
         resp = self.set_register16_response(REGISTER, 2)
         logging.info(f"Chip Status = {resp}")
-        print(f"Chip Status = {resp}")
         REGISTER = 0x0038
         resp = self.set_register16_response(REGISTER, 2)
-        logging.info(f"0x0038 Status = {resp}")
+        logging.debug(f"0x0038 Status = {resp}")
 
     def get_only_status(self):
-        logging.info("Fatching status")
+        logging.debug("Fatching status")
         # Get chip ID
         REGISTER = 0x0020
         resp = self.set_register16_response(REGISTER, 2)
         logging.info(f"Chip Status = {resp}")
 
+    def probe_adcam_adtf3175(self):
+        # Get chip ID
+        REGISTER = 0x0112
+        resp = self.set_register16_response(REGISTER, 2)
+        logging.info(f"Chip ID = {resp}")
+
+        if resp[0] == 0x59 and resp[1] == 0x31:
+            return 1
+        else:
+            return 0
+
     def force_stop_burst_mode(self):
-        logging.info("Forcing burst mode off")
+        logging.debug("Forcing burst mode off")
 
         # turn off burst mode
         REGISTER = 0xAD000010000000001000000001000000
@@ -233,17 +240,17 @@ class adcam:
         return self.get_status()
 
     def get_fw_version(self):
-        logging.info("Fatching version")
+        logging.debug("Fatching version")
 
         # Get chip ID
         REGISTER = 0x0112
         resp = self.set_register16_response(REGISTER, 2)
-        logging.info(f"Chip ID = {resp}")
+        logging.debug(f"Chip ID = {resp}")
 
         # Get Status
         REGISTER = 0x0020
         resp = self.set_register16_response(REGISTER, 2)
-        logging.info(f"Chip Status = {resp}")
+        logging.debug(f"Chip Status = {resp}")
 
         # set to burst mode
         REGISTER = 0x00190000
@@ -258,10 +265,10 @@ class adcam:
         REGISTER = 0xAD000010000000001000000001000000
         self.set_register16_no_response(REGISTER)
 
-        return self.get_status()
+        return resp
 
     def get_chip_status(self):
-        logging.info("Fetching status")
+        logging.debug("Fetching status")
         # Get Status
         REGISTER = 0x0020
         resp = self.set_register16_response(REGISTER, 2)
@@ -269,7 +276,7 @@ class adcam:
 
         REGISTER = 0x0038
         resp = self.set_register16_response(REGISTER, 2)
-        logging.info(f"0x0038 Status = {resp}")
+        logging.debug(f"Register 0x0038 Status = {resp}")
 
     def set_register(self, register, value, timeout=None):
         logging.debug(
@@ -292,7 +299,7 @@ class adcam:
         try:
             write_bytes = bytearray(100)
             uint16_array = self.format_registers(register)
-            logging.info("ADCAM REGISTER NORESPREQD =(0x%X))" % (register))
+            logging.debug("ADCAM REGISTER NORESPREQD =(0x%X))" % (register))
 
             serializer = hololink_module.Serializer(write_bytes)
             for i in range(0, len(uint16_array), 1):
@@ -308,8 +315,8 @@ class adcam:
                 read_byte_count,
                 timeout=timeout,
             )
-            print("ADCAM:", hex(register), "Response", None)
-            # logging.info("set_register16_no_response write =",serializer.data())
+            # print("ADCAM:", hex(register), "Response", None)
+            # logging.debug("set_register16_no_response write =",serializer.data())
         except AttributeError as e:
             logging.info(f"[ERROR] Attribute missing or invalid object used: {e}")
             return None
@@ -327,7 +334,7 @@ class adcam:
         try:
             write_bytes = bytearray(100)
             uint16_array = self.format_registers(register)
-            logging.info("ADCAM REGISTER RESPREQD =(0x%X))" % (register))
+            logging.debug("ADCAM REGISTER RESPREQD =(0x%X))" % (register))
             serializer = hololink_module.Serializer(write_bytes)
             for i in range(0, len(uint16_array), 1):
                 chunk = uint16_array[i]
@@ -343,8 +350,8 @@ class adcam:
             )
             deserializer = hololink_module.Deserializer(reply)
             deserializer.next_uint8()
-            logging.info(f"ADCAM REGISTER REPLY from Chip = {reply}")
-            print("ADCAM:", hex(register), "Response", reply)
+            logging.debug(f"ADCAM REGISTER REPLY from Chip = {reply}")
+            # print("ADCAM:", hex(register), "Response", reply)
             return reply
         except AttributeError as e:
             logging.info(f"[ERROR] Attribute missing or invalid object used: {e}")
@@ -360,21 +367,18 @@ class adcam:
             return None
 
     def stream_on(self):
-        print("Setting Clock continuous mode")
-        logging.info("Setting Clock continuous mode in stream_on")
+        logging.debug("Setting Clock continuous mode in stream_on")
         CONT_MODE = 0x00A90001
         self.set_register16_no_response(CONT_MODE)
         time.sleep(0.2)
-        print("Turning ON Streaming")
-        logging.info("Turning ON Streaming")
+        logging.debug("Turning ON Streaming")
         STREAM_MODE = 0x00AD00C5
         self.set_register16_no_response(STREAM_MODE)
         time.sleep(0.2)
         self.get_status()
 
     def stream_off(self):
-        print("Turning OFF Streaming")
-        logging.info("Turning OFF Streaming")
+        logging.debug("Turning OFF Streaming")
         STREAM_MODE = 0x000C0002
         self.set_register16_no_response(STREAM_MODE)
         time.sleep(0.2)
@@ -384,27 +388,24 @@ class adcam:
         # Get chip ID
         REGISTER = 0x0112
         resp = self.set_register16_response(REGISTER, 2)
-        print((f"Chip ID = {resp}"))
         logging.info(f"Chip ID = {resp}")
 
     def get_Status(self):
         # Get Status
         REGISTER = 0x0020
         resp = self.set_register16_response(REGISTER, 2)
-        print((f"resp = {resp}"))
         logging.info(f"Chip Status = {resp}")
 
     def get_ClockContinuousMode(self):
         # Get Status
         REGISTER = 0x00AA
         resp = self.set_register16_response(REGISTER, 2)
-        print((f"Clock continuous mode =  {resp}"))
-        logging.info(f"Clock continuous mode = {resp}")
+        logging.debug(f"Clock continuous mode = {resp}")
         return resp
 
     def adcam_reset_power_on(self, hololink, hololink_channel, channel_metadata):
 
-        logging.info("Resetting ADCAM")
+        logging.debug("Resetting ADCAM")
         self._pf_gpio.pull_reset_low(0)
         self._expander0.set_register(0x0, 0x0)  # Force all the Expandoer 0 bits as 0
         self._expander1.set_register(0x0, 0x0)  # Force all the Expandoer 1 bits as 0
@@ -458,19 +459,19 @@ class adcam:
         self._pf_gpio.pull_reset_high(0)
 
         logging.info("booting up ADSD, wait for 10 seconds")
-        time.sleep(10)  # Bootup ADSD3500
+        time.sleep(10)  # Boot-up ADSD3500
 
     def adcam_Only_reset(self, hololink, hololink_channel, channel_metadata):
         # pf_gpio = polargpio.polarfireGpio(hololink_channel, hololink.get_gpio(channel_metadata) )
-        print("ADCAM - Making Reset LOW ONLY")
+        logging.debug("ADCAM - Making Reset LOW ONLY")
         self._pf_gpio.pull_reset_low(0)
 
         time.sleep(1)  # Pauses execution for 0.2 seconds (200 milliseconds)
-        print("ADCAM - Making Reset HIGH ONLY")
+        logging.debug("ADCAM - Making Reset HIGH ONLY")
         self._pf_gpio.pull_reset_high(0)
 
-        print("Waiting 10 secs after reset")
-        time.sleep(10)  # Bootup ADSD3500
+        logging.info("Waiting 10 secs after reset")
+        time.sleep(10)  # Boot-up ADSD3500
 
     def configure_converter(self, converter):
         # where do we find the first received byte?
@@ -499,11 +500,9 @@ class adcam:
         # time.sleep(0.6)
         # mode = self.get_ClockContinuousMode()
         if 0:  # mode[0] == 1:
-            print("Contineous clock mode already enabled")
-            logging.info("Contineous clock mode already enabled")
+            logging.debug("Continuous clock mode already enabled")
         else:
-            print("Setting Clock continuous mode in start")
-            logging.info("Setting Clock continuous mode")
+            logging.debug("Setting Clock continuous mode")
             CONT_MODE = 0x00A90001
             self.set_register16_no_response(CONT_MODE)
             time.sleep(0.6)
@@ -513,8 +512,7 @@ class adcam:
 
         """Start Streaming"""
         # self.set_register(0x100, 0x01),
-        logging.info("Turning ON Streaming")
-        print("Turning ON Streaming TS in sec=", int(time.time()))
+        logging.info(f"Turning ON Streaming TS in sec= {int(time.time())}")
         STREAM_MODE = 0x00AD00C5
         self.set_register16_no_response(STREAM_MODE)
         time.sleep(0.2)
@@ -523,8 +521,7 @@ class adcam:
 
     def stop(self):
         """Stop Streaming"""
-        logging.info("Turning OFF Streaming")
-        print("Turning OFF Streaming TS in sec=", int(time.time()))
+        logging.info(f"Turning OFF Streaming TS in sec= {int(time.time())}")
         self.set_register16_response(0x0058, 2)  # read FSYNC status
         STREAM_MODE = 0x000C0002
         self.set_register16_no_response(STREAM_MODE)

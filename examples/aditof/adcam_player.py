@@ -812,7 +812,7 @@ class ADTFUnpackOp(holoscan.core.Operator):
 
         self._width = width
         self._height = height
-        self._flag = 0
+        self._save = 1
 
     def setup(self, spec):
         logging.info("ADTFUnpackOp setup")
@@ -865,15 +865,13 @@ class ADTFUnpackOp(holoscan.core.Operator):
             raw[:, :, 4].astype(cp.uint16) << 8
         )
 
-        if self._flag == 0:
+        if self._save == 1:
+            # dump or save once frame of data, executed only once
             cp_frame_u8.astype("uint8").tofile("dump.bin")
             depth.astype("uint16").tofile("depth.bin")
             conf16.astype("uint16").tofile("conf.bin")
             active_brightness.astype("uint16").tofile("ab.bin")
-            self._flag = 1
-            print(depth.shape)
-            print(depth.dtype)
-            print(depth.nbytes)
+            self._save = 0
 
         depth_c = self.converttojetimage(depth)
         active_brightness_c = self.convert_to_grayscale(active_brightness)
@@ -962,17 +960,29 @@ class HoloscanApplication(holoscan.core.Application):
         frame_size = csi_to_bayer_operator.get_csi_length()
         logging.info(f"{frame_size=}")
         frame_context = self._cuda_context
-        receiver_operator = hololink_module.operators.RoceReceiverOp(
-            self,
-            condition,
-            name="receiver",
-            frame_size=frame_size,
-            frame_context=frame_context,
-            ibv_name=self._ibv_name,
-            ibv_port=self._ibv_port,
-            hololink_channel=self._hololink_channel,
-            device=self._adcam_inst,
-        )
+
+        if self._ibv_name is not None:
+            receiver_operator = hololink_module.operators.RoceReceiverOp(
+                self,
+                condition,
+                name="receiver",
+                frame_size=frame_size,
+                frame_context=frame_context,
+                ibv_name=self._ibv_name,
+                ibv_port=self._ibv_port,
+                hololink_channel=self._hololink_channel,
+                device=self._adcam_inst,
+            )
+        else:
+            receiver_operator = hololink_module.operators.LinuxReceiverOperator(
+                self,
+                condition,
+                name="receiver",
+                frame_size=frame_size,
+                frame_context=frame_context,
+                hololink_channel=self._hololink_channel,
+                device=self._adcam_inst,
+            )
 
         ADIToF_data = ADTFUnpackOp(
             self,
@@ -1042,7 +1052,7 @@ def int_or_none(value):
 def main():
     # Get a handle to the Hololink port we're connected to.
     parser = argparse.ArgumentParser(
-        description="ADITOF Holoscan application parseing arguments"
+        description="ADITOF Holoscan application parsing arguments"
     )
 
     # Define arguments
@@ -1093,17 +1103,35 @@ def main():
     )
 
     infiniband_devices = hololink_module.infiniband_devices()
-    parser.add_argument(
-        "--ibv-name",
-        default=infiniband_devices[0],
-        help="IBV device to use",
-    )
-    parser.add_argument(
-        "--ibv-port",
-        type=int,
-        default=1,
-        help="Port number of IBV device",
-    )
+
+    #  check if we have infiniband_devices or regular linux network
+    if infiniband_devices and len(infiniband_devices) > 0:
+
+        parser.add_argument(
+            "--ibv-name",
+            default=infiniband_devices[0],
+            help="IBV device to use",
+        )
+        parser.add_argument(
+            "--ibv-port",
+            type=int,
+            default=1,
+            help="Port number of IBV device",
+        )
+    else:
+        logging.info("No Infiniband devices found, using linux player")
+        parser.add_argument(
+            "--ibv-name",
+            default=None,
+            help="Network device to use",
+        )
+        parser.add_argument(
+            "--ibv-port",
+            type=int,
+            default=0,
+            help="Port number of device",
+        )
+
     args = parser.parse_args()
 
     hololink_module.logging_level(2)
@@ -1127,6 +1155,34 @@ def main():
         hololink_channel, hololink_module.CAM_I2C_BUS, channel_metadata
     )
 
+    # Establish a connection to the hololink device
+    hololink = hololink_channel.hololink()
+    hololink.start()
+
+    if args.resetAdcam == 1:
+        logging.info("Doing the full Reset including power on sequence")
+        adcam_inst.adcam_reset_power_on(hololink, hololink_channel, channel_metadata)
+
+    if args.resetOnly == 1:
+        logging.info("Performing ONLY Reset - NOT doing FULL Power on reset")
+        adcam_inst.adcam_Only_reset(hololink, hololink_channel, channel_metadata)
+
+    # add FW upgrade as well
+
+    # check if the chip exists
+    if adcam_inst.probe_adcam_adtf3175() != 1:
+        logging.error("No ADCAM ADTF3175 found, connect ADCAM, reset and try again")
+        hololink.stop()
+        exit()
+
+    # Fetch the device version.
+    if args.getStatus == 1:
+        logging.debug("Getting only status")
+        adcam_inst.get_status()
+
+    version = adcam_inst.get_fw_version()
+    logging.info(f"{version=}")
+
     if args.capture == 1:
         # Set up the application
         application = HoloscanApplication(
@@ -1140,34 +1196,11 @@ def main():
             adcam_inst,
             args.frame_limit,
         )
-
-    # Establish a connection to the hololink device
-    hololink = hololink_channel.hololink()
-    hololink.start()
-
-    if args.resetAdcam == 1:
-        print("Doing the full Reset including power on sequence")
-        adcam_inst.adcam_reset_power_on(hololink, hololink_channel, channel_metadata)
-
-    if args.resetOnly == 1:
-        print("Peforming ONLY Reset - NOT doing FULL Power on reset")
-        adcam_inst.adcam_Only_reset(hololink, hololink_channel, channel_metadata)
-
-    # add FW upgrade as well
-
-    # Fetch the device version.
-    if args.getStatus == 1:
-        print("Getting only status")
-        adcam_inst.get_status()
-
-    version = adcam_inst.get_fw_version()
-    logging.info(f"{version=}")
-
     if args.capture == 1:
         # adcam_inst.set_mode ()
         application.run()
     elif args.capture == 2:
-        print("Force stop capture..")
+        logging.debug("Force stop capture..")
         adcam_inst.stream_off()
 
     hololink.stop()

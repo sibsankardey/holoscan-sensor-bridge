@@ -1,9 +1,34 @@
 # Running Analog Devices Inc Time of Flight Chip ADTF3175 capture apps
-More details about the chip and eval kit can be found on https://www.analog.com/en/products/adtf3175.html
-The new module which is a varient of ADTF3175 includes a ToF sensor + 2xADSD3500 DSPs to do depth calculation 
-inside DSP and produce MIPI 22-pin output. The MIPI output then fed to Microchip Polarfire HSB or equivalent HSB
-supporting ADI ADSD3500 output. Please get in touch with Microchip to access to the bitfile/FW to support 
-ADTF3175. The FW version used >=2507
+
+More details about the chip and eval kit can be found on
+https://www.analog.com/en/products/adtf3175.html The new module which is a variant of
+ADTF3175 includes a ToF sensor + 2xADSD3500 DSPs to do depth calculation in the DSP and
+produce MIPI 22-pin output. The MIPI output then fed to Microchip Polarfire HSB or
+equivalent HSB supporting ADI ADSD3500 output. Please get in touch with Microchip to
+access to the bitfile/FW to support ADTF3175 and enumeration patch to support GPIO
+access on MIPI port. The FW version used >=2507 This has been tested to work on an
+Nvidia IGX kit.
+
+```
+ToF Imager (ADSD3100 or ADSD3030)
+            ||
+            ||
+    ADSD3500 (Dual or Single)
+            ||
+            || (MIPI for Frame Data)
+            || (I2C for Control)
+            ||
+------------------------------------------
+            |       (Sensor Bridge)
+         Holoscan
+            |
+            |
+     ADCAM capture app
+
+
+|| - Hardware Connection
+ | - Software Connection
+```
 
 # Prerequisites for running the application
 
@@ -25,7 +50,8 @@ Capture depth data
 
 ```
 
-This will open a Holoviz display and show 3 images (Depth, Absolute Brightness and Confidence image)
+This will open a Holoviz display and show 3 images (Depth, Absolute Brightness and
+Confidence image)
 
 ## Getting the source
 
@@ -48,7 +74,6 @@ This will open a Holoviz display and show 3 images (Depth, Absolute Brightness a
   sh ./docker/demo.sh
 
 ```
-
 
 ## Using locally built holoscan sdk image as base image
 
