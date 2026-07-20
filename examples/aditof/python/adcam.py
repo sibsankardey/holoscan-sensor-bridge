@@ -837,7 +837,7 @@ class adcam:
     def get_generic_resp(self):
         # Get chip ID of 2nd Pulsatrix which is on the slave side
         REGISTER = 0x005A
-        print("Getting generic respons")
+        print("Getting generic response")
         resp = self.set_register16_response(REGISTER, 2)
         logging.info(f"Fun: Generic Response = {resp}")
         print(f"Fun: Generic Response  = {resp}")
@@ -1077,7 +1077,7 @@ class adcam:
             print("ADCAM exception Error:", hex(register))
             return None
 
-    # Conceptually this funciton is same as def set_register16_no_response(self, register, resp_len=0, timeout=None):
+    # Conceptually this function is same as def set_register16_no_response(self, register, resp_len=0, timeout=None):
     def write_raw_data(self, data_chunk, data_len, timeout=None):
         try:
             write_bytes = bytearray(1000)

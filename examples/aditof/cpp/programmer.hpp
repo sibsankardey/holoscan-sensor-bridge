@@ -32,36 +32,35 @@
 // Forward declaration — avoids pulling the full Adcam header into every TU.
 namespace hololink {
 namespace sensors {
-class Adcam;
+    class Adcam;
 }
 } // namespace hololink
 
 namespace hololink {
 
 class Programmer {
-  public:
+public:
     struct Args {
         std::string hololink_ip = "192.168.0.2";
         bool force = false;
-        hololink::logging::HsbLogLevel log_level =
-            hololink::logging::HSB_LOG_LEVEL_INFO;
+        hololink::logging::HsbLogLevel log_level = hololink::logging::HSB_LOG_LEVEL_INFO;
         std::string manifest;
         std::string archive;
         bool accept_eula = false;
     };
 
-    Programmer(const Args &args, const std::string &manifest_filename);
+    Programmer(const Args& args, const std::string& manifest_filename);
     ~Programmer();
 
-    void fetch_manifest(const std::string &section);
+    void fetch_manifest(const std::string& section);
     bool program_and_verify_images(
         std::shared_ptr<Hololink> hololink,
         std::shared_ptr<hololink::sensors::Adcam> adcam = nullptr);
-    std::vector<uint8_t> fetch_content(const std::string &content_name);
+    std::vector<uint8_t> fetch_content(const std::string& content_name);
     void check_eula();
     void check_images();
 
-  private:
+private:
     static std::atomic<int> instances;
     Args args_;
     std::string manifest_filename_;

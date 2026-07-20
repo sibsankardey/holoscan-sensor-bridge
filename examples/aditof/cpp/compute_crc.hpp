@@ -50,7 +50,7 @@ typedef struct {
 
 extern uint32_t const crc32_table[256];
 
-crc_output_t compute_crc(crc_parameters_t *crc_parameters, uint8_t *data,
-                         uint32_t data_len);
+crc_output_t compute_crc(crc_parameters_t* crc_parameters, uint8_t* data,
+    uint32_t data_len);
 
 #endif // COMPUTE_CRC_HPP

@@ -50,7 +50,7 @@ void unpack_kernel_launch(
     uint16_t* ab,
     int width,
     int height,
-    cudaStream_t stream);    
+    cudaStream_t stream);
 namespace hololink::operators {
 
 /**
@@ -61,36 +61,36 @@ namespace hololink::operators {
  */
 class ADTFUnpackOp : public holoscan::Operator {
 public:
-  HOLOSCAN_OPERATOR_FORWARD_ARGS(ADTFUnpackOp);
-  ADTFUnpackOp() = default;
+    HOLOSCAN_OPERATOR_FORWARD_ARGS(ADTFUnpackOp);
+    ADTFUnpackOp() = default;
 
-  void setup(holoscan::OperatorSpec& spec) override;
-  void start() override;
-  void stop() override;
+    void setup(holoscan::OperatorSpec& spec) override;
+    void start() override;
+    void stop() override;
 
-  void compute(
-      holoscan::InputContext& op_input,
-      holoscan::OutputContext& op_output,
-      holoscan::ExecutionContext& context) override;
+    void compute(
+        holoscan::InputContext& op_input,
+        holoscan::OutputContext& op_output,
+        holoscan::ExecutionContext& context) override;
 
- private:
-  holoscan::Parameter<int> width_;
-  holoscan::Parameter<int> height_;
-  holoscan::Parameter<int> num_planes_;
+private:
+    holoscan::Parameter<int> width_;
+    holoscan::Parameter<int> height_;
+    holoscan::Parameter<int> num_planes_;
 
-  holoscan::Parameter<std::shared_ptr<holoscan::Allocator>> allocator_;
+    holoscan::Parameter<std::shared_ptr<holoscan::Allocator>> allocator_;
 
-  int frame_size_;
-  int pixel_size_;
+    int frame_size_;
+    int pixel_size_;
 
-  holoscan::Parameter<int> cuda_device_ordinal_;
-  std::shared_ptr<holoscan::Tensor> depth_tensor_;
-  std::shared_ptr<holoscan::Tensor> conf_tensor_;
-  std::shared_ptr<holoscan::Tensor> ab_tensor_;
+    holoscan::Parameter<int> cuda_device_ordinal_;
+    std::shared_ptr<holoscan::Tensor> depth_tensor_;
+    std::shared_ptr<holoscan::Tensor> conf_tensor_;
+    std::shared_ptr<holoscan::Tensor> ab_tensor_;
 
-  std::shared_ptr<holoscan::Tensor> depth_rgb_;
-  std::shared_ptr<holoscan::Tensor> conf_rgb_;
-  std::shared_ptr<holoscan::Tensor> ab_rgb_;    
+    std::shared_ptr<holoscan::Tensor> depth_rgb_;
+    std::shared_ptr<holoscan::Tensor> conf_rgb_;
+    std::shared_ptr<holoscan::Tensor> ab_rgb_;
 
     holoscan::Parameter<std::string> in_tensor_name_;
     holoscan::Parameter<std::string> out_tensor_name_;
@@ -102,8 +102,7 @@ public:
 
     holoscan::CudaStreamHandler cuda_stream_handler_;
 
-    //std::shared_ptr<hololink::common::CudaFunctionLauncher> cuda_function_launcher_;
-
+    // std::shared_ptr<hololink::common::CudaFunctionLauncher> cuda_function_launcher_;
 };
 
 } // namespace hololink::operators

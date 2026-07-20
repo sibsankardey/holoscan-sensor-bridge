@@ -1133,7 +1133,7 @@ def int_or_none(value):
 def main():
     # Get a handle to the Hololink port we're connected to.
     parser = argparse.ArgumentParser(
-        description="ADITOF Holoscan application parseing arguments"
+        description="ADITOF Holoscan application parsing arguments"
     )
 
     # Define arguments
