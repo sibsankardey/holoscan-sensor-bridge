@@ -305,6 +305,7 @@ int main(int argc, char** argv)
     int32_t reset_pin = 0;
     int32_t num_planes = 3;
     int32_t tof_fps = 30;
+    int32_t do_profile = 30;
     int32_t metadata_sz = 0;
     uint16_t mipi_lane_speed = MIPI_SPEED_2_5_GBPS; /* 2.5Gbps/lane */
     bool headless = false;
@@ -354,6 +355,7 @@ int main(int argc, char** argv)
         { "captureFps", required_argument, nullptr, 0 },
         { "metadata", required_argument, nullptr, 0 },
         { "maxMipi", required_argument, nullptr, 0 },
+        { "profile", required_argument, nullptr, 0 },
         { "log-level", required_argument, nullptr, 0 },
         { 0, 0, nullptr, 0 }
     };
@@ -460,6 +462,9 @@ int main(int argc, char** argv)
             } else if (opt->name == std::string("capture")) {
                 do_capture = std::stoi(argument);
 
+            } else if (opt->name == std::string("profile")) {
+                do_profile = std::stoi(argument);
+
             } else if (opt->name == std::string("log-level")) {
                 // Normalize log level
                 std::string lvl = argument;
@@ -492,6 +497,7 @@ int main(int argc, char** argv)
                       << "  --resetPin <0-31>    Reset ADCAM pin, refer readme, default 0\n"
                       << "  --metadata <0-256>   Metadata to be removed from MIPI receive, refer readme, default 0\n"
                       << "  --maxMipi  <1000/1050/2000/2500>  Max supported Mipi per lane speed (default 2.5Gbps, 1G/1.5G/2G supported)\n"
+                      << "  --profile  Profile of GPIO timing\n"
                       << "  --firmwareUpdate <manifest.yaml>  Update ADCAM firmware using the given manifest file\n"                      
                       ;
             return EXIT_SUCCESS;
@@ -544,7 +550,7 @@ int main(int argc, char** argv)
         auto hololink = hololink_channel->hololink();
         hololink->start();
 
-        if (0){
+        if (do_profile == 1){
             std::cout << "Doing GPIO profiling" << std::endl;
              std::this_thread::sleep_for(std::chrono::seconds(5));
             adcam_inst->profile_fpga_perf(reset_pin);
