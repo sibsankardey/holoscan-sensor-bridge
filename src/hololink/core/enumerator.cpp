@@ -678,7 +678,7 @@ void Enumerator::configure_default_enumeration_strategies()
     // For those bootp-v1 configurations, provide default strategies
     Metadata hololink_lite_metadata;
     hololink_lite_metadata["board_description"] = "hololink-lite";
-    hololink_lite_metadata["gpio_pin_count"] = 16;
+    hololink_lite_metadata["gpio_pin_count"] = 32;
     auto hololink_lite_enumeration_strategy = std::make_shared<BasicEnumerationStrategy>(
         hololink_lite_metadata,
         3, // total_sensors (sensor 2 is the I2S audio interface)
