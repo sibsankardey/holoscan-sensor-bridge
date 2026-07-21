@@ -19,14 +19,22 @@
 
 import argparse
 import ctypes
+import hashlib
 import logging
+import os
+import pydoc
+import sys
 
 import adcam
 import cuda.bindings.driver as cuda
 import cupy as cp
 import holoscan
+import requests
+import yaml
 
 import hololink as hololink_module
+
+# import time
 
 
 class ADTFUnpackOp(holoscan.core.Operator):
@@ -804,7 +812,7 @@ class ADTFUnpackOp(holoscan.core.Operator):
         ]
     )
 
-    def __init__(self, *args, no_of_planes=3, width, height, **kwargs):
+    def __init__(self, *args, no_of_planes, width, height, size, **kwargs):
         super().__init__(*args, **kwargs)
         self._no_of_planes = no_of_planes
         lut_np = cp.frombuffer(self.JET_LUT_U8, dtype=cp.uint8).reshape(256, 3)
@@ -812,6 +820,10 @@ class ADTFUnpackOp(holoscan.core.Operator):
 
         self._width = width
         self._height = height
+        self._size = size
+        logging.info(
+            f"ADTFUnpackOp init width X height X size = {self._width} X {self._height} X {self._size}"
+        )
         self._save = 1
 
     def setup(self, spec):
@@ -836,14 +848,11 @@ class ADTFUnpackOp(holoscan.core.Operator):
         # shape: (H, W, 3), dtype=uint8
         return rgb
 
-    def convert_to_grayscale(self, image):
-        # Normalize the depth image to the range 0 to 255
-        # 1. First, normalize the values from 0 to 65535 to 0 to 1
+    def convert_to_grayscale(self, image, max_val=4096.0):
+        # Normalize to 0-255 using the given full-scale value
         image_normalized = cp.clip(
-            image.astype(cp.float32) * 255 / 4096, 0, 255
+            image.astype(cp.float32) * 255.0 / max_val, 0, 255
         ).astype(cp.uint8)
-        # 2. Scale it to the range 0 to 255 (for 8-bit grayscale)
-        # image_grayscale = cp.clip(image_normalized * 255, 0, 255).astype(cp.uint8)
         image_grayscale = cp.repeat(image_normalized[:, :, None], 3, axis=2)
         return image_grayscale
 
@@ -854,28 +863,56 @@ class ADTFUnpackOp(holoscan.core.Operator):
         cp_frame = cp.asarray(msg)
         cp_frame_u8 = (cp_frame >> 8).astype(cp.uint8)
 
-        raw = cp_frame_u8.reshape(
-            self._height, self._width, 5
-        )  # 2 bytes depth, 1 byte conf, 2 bytes ab
-
+        # logging.info("compute")
         # Extract  the data from the stream
-        depth = raw[:, :, 0].astype(cp.uint16) | (raw[:, :, 1].astype(cp.uint16) << 8)
-        conf16 = raw[:, :, 2].astype(cp.uint16) << 8
-        active_brightness = raw[:, :, 3].astype(cp.uint16) | (
-            raw[:, :, 4].astype(cp.uint16) << 8
-        )
+        if self._no_of_planes == 3:
 
+            # -----------------------------------------------------------------------
+            # Unpack ADI ToF subframe-planar layout (mirrors unpack_kernel in .cu):
+            #
+            #   Subframe 1 (N×3 bytes): [D_L][D_H][C] for each of N = H×W pixels
+            #   Subframe 2 (N×2 bytes): [AB_L][AB_H] for each of N pixels
+            #
+            # Total = N×5 bytes (NOT 5 interleaved bytes per pixel).
+            # -----------------------------------------------------------------------
+            N = self._height * self._width
+            raw_flat = cp_frame_u8.reshape(-1)  # flatten to 1D (N*5 bytes)
+
+            # Subframe 1: depth (uint16 LE) + confidence (uint8) — 3 bytes per pixel
+            sf1 = raw_flat[: N * 3].reshape(N, 3)
+            depth = (
+                sf1[:, 0].astype(cp.uint16) | (sf1[:, 1].astype(cp.uint16) << 8)
+            ).reshape(self._height, self._width)
+            conf = sf1[:, 2].astype(cp.uint16).reshape(self._height, self._width)
+
+            # Subframe 2: active brightness (uint16 LE) — 2 bytes per pixel
+            sf2 = raw_flat[N * 3 : N * 5].reshape(N, 2)
+            active_brightness = (
+                sf2[:, 0].astype(cp.uint16) | (sf2[:, 1].astype(cp.uint16) << 8)
+            ).reshape(self._height, self._width)
+
+        else:
+            raw = cp_frame_u8.reshape(-1)  # flatten to 1D (N*5 bytes)
+            depth = raw[:, :, 0].astype(cp.uint16) | (
+                raw[:, :, 1].astype(cp.uint16) << 8
+            )
+            active_brightness = raw[:, :, 2].astype(cp.uint16) | (
+                raw[:, :, 3].astype(cp.uint16) << 8
+            )
         if self._save == 1:
             # dump or save once frame of data, executed only once
             cp_frame_u8.astype("uint8").tofile("dump.bin")
             depth.astype("uint16").tofile("depth.bin")
-            conf16.astype("uint16").tofile("conf.bin")
+            if self._no_of_planes == 3:
+                conf.astype("uint16").tofile("conf.bin")
+
             active_brightness.astype("uint16").tofile("ab.bin")
             self._save = 0
 
         depth_c = self.converttojetimage(depth)
         active_brightness_c = self.convert_to_grayscale(active_brightness)
-        conf_c = self.convert_to_grayscale(conf16)
+        if self._no_of_planes == 3:
+            conf_c = self.convert_to_grayscale(conf)
 
         if self._no_of_planes == 1:
             op_output.emit(
@@ -908,6 +945,7 @@ class HoloscanApplication(holoscan.core.Application):
         ibv_port,
         adcam_inst,
         frame_limit,
+        # mode,
     ):
         logging.info("__init__")
         super().__init__()
@@ -920,10 +958,9 @@ class HoloscanApplication(holoscan.core.Application):
         self._ibv_port = ibv_port
         self._adcam_inst = adcam_inst
         self._frame_limit = frame_limit
+        self._mode = 6
 
     def compose(self):
-        logging.info("compose")
-        logging.info("Phani - Entering compose")
         if self._frame_limit:
             self._count = holoscan.conditions.CountCondition(
                 self,
@@ -937,6 +974,7 @@ class HoloscanApplication(holoscan.core.Application):
             )
             condition = self._ok
 
+        # self._adcam_inst.set_param(self._mode)
         self._adcam_inst.set_mipi()
         self._adcam_inst.set_mode()
         csi_to_bayer_pool = holoscan.resources.BlockMemoryPool(
@@ -945,6 +983,7 @@ class HoloscanApplication(holoscan.core.Application):
             # storage_type of 1 is device memory
             storage_type=1,
             block_size=self._adcam_inst._width
+            * self._adcam_inst._byteperpixel
             * ctypes.sizeof(ctypes.c_uint16)
             * self._adcam_inst._height,
             num_blocks=2,
@@ -984,59 +1023,101 @@ class HoloscanApplication(holoscan.core.Application):
                 device=self._adcam_inst,
             )
 
+        num_planes = self._adcam_inst.get_num_planes()
+
         ADIToF_data = ADTFUnpackOp(
             self,
             name="ADIToF_data",
-            no_of_planes=3,
-            width=512,
-            height=512,
+            no_of_planes=num_planes,
+            width=self._adcam_inst.get_pixel_width(),
+            height=self._adcam_inst.get_pixel_height(),
+            size=self._adcam_inst.get_pixelsize(),
         )
 
-        left_spec = holoscan.operators.HolovizOp.InputSpec(
-            "Depth", holoscan.operators.HolovizOp.InputType.COLOR
-        )
-        left_spec_view = holoscan.operators.HolovizOp.InputSpec.View()
-        left_spec_view.offset_x = 0
-        left_spec_view.offset_y = 0
-        left_spec_view.width = 0.33
-        left_spec_view.height = 1
-        left_spec.views = [left_spec_view]
+        if num_planes == 2:
+            left_spec = holoscan.operators.HolovizOp.InputSpec(
+                "Depth", holoscan.operators.HolovizOp.InputType.COLOR
+            )
+            left_spec_view = holoscan.operators.HolovizOp.InputSpec.View()
+            left_spec_view.offset_x = 0
+            left_spec_view.offset_y = 0
+            left_spec_view.width = 0.50
+            left_spec_view.height = 1
+            left_spec.views = [left_spec_view]
 
-        center_spec = holoscan.operators.HolovizOp.InputSpec(
-            "ActiveBrightness", holoscan.operators.HolovizOp.InputType.COLOR
-        )
-        center_spec_view = holoscan.operators.HolovizOp.InputSpec.View()
-        center_spec_view.offset_x = 0.33
-        center_spec_view.offset_y = 0
-        center_spec_view.width = 0.33
-        center_spec_view.height = 1
-        center_spec.views = [center_spec_view]
+            center_spec = holoscan.operators.HolovizOp.InputSpec(
+                "ActiveBrightness", holoscan.operators.HolovizOp.InputType.COLOR
+            )
+            center_spec_view = holoscan.operators.HolovizOp.InputSpec.View()
+            center_spec_view.offset_x = 0.50
+            center_spec_view.offset_y = 0
+            center_spec_view.width = 0.51
+            center_spec_view.height = 1
+            center_spec.views = [center_spec_view]
 
-        right_spec = holoscan.operators.HolovizOp.InputSpec(
-            "Conf", holoscan.operators.HolovizOp.InputType.COLOR
-        )
-        right_spec_view = holoscan.operators.HolovizOp.InputSpec.View()
-        right_spec_view.offset_x = 0.66
-        right_spec_view.offset_y = 0
-        right_spec_view.width = 0.34
-        right_spec_view.height = 1
-        right_spec.views = [right_spec_view]
+            window_height = 1920
+            window_width = 2048  # for the pair
+            window_title = "ADI ToF Player"
+            visualizer = holoscan.operators.HolovizOp(
+                self,
+                name="holoviz",
+                headless=self._headless,
+                framebuffer_srgb=True,
+                # tensors=[left_spec],
+                # tensors=[left_spec, center_spec],
+                tensors=[left_spec, center_spec],
+                height=window_height,
+                width=window_width,
+                window_title=window_title,
+            )
 
-        window_height = 1920
-        window_width = 2048  # for the pair
-        window_title = "ADI ToF Player"
-        visualizer = holoscan.operators.HolovizOp(
-            self,
-            name="holoviz",
-            headless=self._headless,
-            framebuffer_srgb=True,
-            # tensors=[left_spec],
-            # tensors=[left_spec, center_spec],
-            tensors=[left_spec, center_spec, right_spec],
-            height=window_height,
-            width=window_width,
-            window_title=window_title,
-        )
+        else:
+
+            left_spec = holoscan.operators.HolovizOp.InputSpec(
+                "Depth", holoscan.operators.HolovizOp.InputType.COLOR
+            )
+            left_spec_view = holoscan.operators.HolovizOp.InputSpec.View()
+            left_spec_view.offset_x = 0
+            left_spec_view.offset_y = 0
+            left_spec_view.width = 0.33
+            left_spec_view.height = 1
+            left_spec.views = [left_spec_view]
+
+            center_spec = holoscan.operators.HolovizOp.InputSpec(
+                "ActiveBrightness", holoscan.operators.HolovizOp.InputType.COLOR
+            )
+            center_spec_view = holoscan.operators.HolovizOp.InputSpec.View()
+            center_spec_view.offset_x = 0.33
+            center_spec_view.offset_y = 0
+            center_spec_view.width = 0.33
+            center_spec_view.height = 1
+            center_spec.views = [center_spec_view]
+
+            right_spec = holoscan.operators.HolovizOp.InputSpec(
+                "Conf", holoscan.operators.HolovizOp.InputType.COLOR
+            )
+            right_spec_view = holoscan.operators.HolovizOp.InputSpec.View()
+            right_spec_view.offset_x = 0.66
+            right_spec_view.offset_y = 0
+            right_spec_view.width = 0.34
+            right_spec_view.height = 1
+            right_spec.views = [right_spec_view]
+
+            window_height = 1920
+            window_width = 2048  # for the pair
+            window_title = "ADI ToF Player"
+            visualizer = holoscan.operators.HolovizOp(
+                self,
+                name="holoviz",
+                headless=self._headless,
+                framebuffer_srgb=True,
+                # tensors=[left_spec],
+                # tensors=[left_spec, center_spec],
+                tensors=[left_spec, center_spec, right_spec],
+                height=window_height,
+                width=window_width,
+                window_title=window_title,
+            )
 
         self.add_flow(receiver_operator, csi_to_bayer_operator, {("output", "input")})
         self.add_flow(csi_to_bayer_operator, ADIToF_data, {("output", "input")})
@@ -1068,7 +1149,7 @@ def main():
         "--capture",
         "-c",
         type=int,
-        default=0,
+        default=-1,
         required=False,
         help="Capture ADCAM streams",
     )
@@ -1090,6 +1171,76 @@ def main():
         default=0,
         required=False,
         help="Get status part of debug",
+    )
+
+    parser.add_argument(
+        "--captureMode",
+        type=int,
+        default=6,
+        required=False,
+        help="Capture mode index (0-9, default 6)",
+    )
+
+    parser.add_argument(
+        "--resetPin",
+        type=int,
+        default=0,
+        required=False,
+        help="GPIO reset pin number (0-31, default 0)",
+    )
+
+    parser.add_argument(
+        "--numPlanes",
+        type=int,
+        default=3,
+        required=False,
+        help="numPlanes (2 (Depth + AB) or 3 (Depth + AB + Conf))",
+    )
+
+    parser.add_argument(
+        "--captureFps",
+        type=int,
+        default=30,
+        required=False,
+        help="Adcam Capture FPS (some FPS may not work), default 30",
+    )
+
+    parser.add_argument(
+        "--metadata",
+        type=int,
+        default=0,
+        required=False,
+        help="Metadata to be removed from MIPI receive, refer readme, default 0",
+    )
+
+    parser.add_argument(
+        "--maxMipi",
+        type=int,
+        default=1,
+        required=False,
+        help="Max supported Mipi per lane speed (default 1=2.5Gbps,2=2Gbps, 3= 1.5Gbps, 4=1Gbps supported), refer readme",
+    )
+
+    parser.add_argument(
+        "--log-level",
+        default="info",
+        required=False,
+        help="Logging level: trace/debug/info/warn/error (default info)",
+    )
+
+    parser.add_argument(
+        "--firmwareUpdate",
+        default=None,
+        required=False,
+        metavar="MANIFEST.yaml",
+        help="Path to firmware manifest YAML file (e.g. adi_manifest.yaml)",
+    )
+
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        default=False,
+        help="Allow firmware downgrade (requires --firmwareUpdate)",
     )
 
     # Parse arguments
@@ -1137,6 +1288,29 @@ def main():
     hololink_module.logging_level(2)
     logging.info("Initializing.")
 
+    # Apply log level — use hololink's logging_level() instead of basicConfig()
+    # to avoid overriding the hololink formatter that injects log_timestamp_s.
+    _log_level_map = {
+        "trace": logging.DEBUG,
+        "debug": logging.DEBUG,
+        "info": logging.INFO,
+        "warn": logging.WARNING,
+        "error": logging.ERROR,
+        "critical": logging.CRITICAL,
+    }
+    logging.getLogger().setLevel(
+        _log_level_map.get(args.log_level.lower(), logging.INFO)
+    )
+
+    # Validate captureMode range
+    if not (0 <= args.captureMode <= 9):
+        print(f"Error: --captureMode must be 0-9, got {args.captureMode}")
+        sys.exit(1)
+    # Validate resetPin range
+    if not (0 <= args.resetPin <= 31):
+        print(f"Error: --resetPin must be 0-31, got {args.resetPin}")
+        sys.exit(1)
+
     (cu_result,) = cuda.cuInit(0)
     assert cu_result == cuda.CUresult.CUDA_SUCCESS
     cu_device_ordinal = 0
@@ -1152,7 +1326,15 @@ def main():
     # Instantiate the adcam_inst itself; CAM_I2C_BUS is the appropriate bus enable setting
     # for the I2C controller our adcam_inst is attached to
     adcam_inst = adcam.adcam(
-        hololink_channel, hololink_module.CAM_I2C_BUS, channel_metadata
+        hololink_channel,
+        hololink_module.CAM_I2C_BUS,
+        channel_metadata,
+        adcam_mode=args.captureMode,
+        reset_pin=args.resetPin,
+        num_planes=args.numPlanes,
+        tof_fps=args.captureFps,
+        metadata_sz=args.metadata,
+        mipi_lane_speed=args.maxMipi,
     )
 
     # Establish a connection to the hololink device
@@ -1161,27 +1343,132 @@ def main():
 
     if args.resetAdcam == 1:
         logging.info("Doing the full Reset including power on sequence")
-        adcam_inst.adcam_reset_power_on(hololink, hololink_channel, channel_metadata)
+        adcam_inst.adcam_reset_power_on()
 
     if args.resetOnly == 1:
         logging.info("Performing ONLY Reset - NOT doing FULL Power on reset")
-        adcam_inst.adcam_Only_reset(hololink, hololink_channel, channel_metadata)
+        adcam_inst.adcam_Only_reset()
 
-    # add FW upgrade as well
-
-    # check if the chip exists
+    # check if the chip exists (0x0112) before querying imager type (0x0032)
     if adcam_inst.probe_adcam_adtf3175() != 1:
-        logging.error("No ADCAM ADTF3175 found, connect ADCAM, reset and try again")
+        logging.warning(
+            "ADCAM not responding; performing automatic power-on reset and retrying..."
+        )
+        adcam_inst.adcam_reset_power_on()
+        if adcam_inst.probe_adcam_adtf3175() != 1:
+            logging.error(
+                "No ADCAM ADTF3175 found after reset, connect ADCAM and try again"
+            )
         hololink.stop()
         exit()
+
+    # Detect imager type after the device is confirmed present
+    adcam_inst.get_imager_type_and_ccb_version()
 
     # Fetch the device version.
     if args.getStatus == 1:
         logging.debug("Getting only status")
         adcam_inst.get_status()
 
-    version = adcam_inst.get_fw_version()
+    # ---------------------------------------------------------------------------
+    # Firmware update via YAML manifest (mirrors C++ Programmer flow)
+    # ---------------------------------------------------------------------------
+    if args.firmwareUpdate is not None:
+        manifest_path = args.firmwareUpdate
+        if not os.path.exists(manifest_path):
+            print(f"Error: manifest file not found: {manifest_path}")
+            sys.exit(1)
+
+        print(f"Loading firmware manifest: {manifest_path}")
+        with open(manifest_path, "rt") as f:
+            manifest = yaml.safe_load(f)
+        section = manifest.get("hololink")
+        if section is None:
+            print("Error: manifest missing 'hololink' section")
+            sys.exit(1)
+
+        def _fetch_content(content_name):
+            """Download or read a content entry, verify md5+size, return bytes."""
+            meta = section["content"][content_name]
+            expected_md5 = meta["md5"]
+            expected_size = meta["size"]
+            if "url" in meta:
+                url = meta["url"]
+                print(f"Downloading {content_name} from {url} ...")
+                resp = requests.get(
+                    url,
+                    headers={"Content-Type": "binary/octet-stream"},
+                    timeout=120,
+                )
+                if resp.status_code != 200:
+                    raise RuntimeError(
+                        f'Unable to fetch "{url}"; HTTP {resp.status_code}'
+                    )
+                data = resp.content
+            elif "filename" in meta:
+                with open(meta["filename"], "rb") as fh:
+                    data = fh.read()
+            else:
+                raise RuntimeError(
+                    f"No source for content '{content_name}' in manifest"
+                )
+            if len(data) != expected_size:
+                raise RuntimeError(
+                    f"{content_name}: expected {expected_size} bytes, got {len(data)}"
+                )
+            actual_md5 = hashlib.md5(data).hexdigest()
+            if actual_md5.lower() != expected_md5.lower():
+                raise RuntimeError(
+                    f"{content_name}: MD5 mismatch (expected {expected_md5}, got {actual_md5})"
+                )
+            return data
+
+        # EULA check
+        licenses = section.get("licenses")
+        if licenses and not getattr(args, "accept_eula", False):
+            print("You must accept EULA terms in order to continue.")
+            print("For each document, press <Space> to see the next page;")
+            print("At the end of the document, enter <Q> to continue.")
+            input("To continue, press <Enter>: ")
+            for lic_name in licenses:
+                lic_text = _fetch_content(lic_name).decode(errors="replace")
+                pydoc.pager(lic_text)
+                answer = input(
+                    "Press 'y' or 'Y' to accept this end user license agreement: "
+                )
+                if not answer.strip().upper().startswith("Y"):
+                    print("EULA not accepted. Aborting.")
+                    hololink.stop()
+                    sys.exit(1)
+
+        # Fetch firmware images
+        content = {}
+        for img in section.get("images", []):
+            ctx = img["context"]
+            cname = img["content"]
+            print(f"Fetching image: context={ctx} content={cname}")
+            content[ctx] = _fetch_content(cname)
+
+        fw_bin = content.get("adcam")
+        if fw_bin is None:
+            print("Error: manifest has no 'adcam' context image")
+            sys.exit(1)
+        print(f"Firmware binary: {len(fw_bin)} bytes")
+
+        result = adcam_inst.adsd3500_flash(fw_bin, force=args.force)
+        if result:
+            print("Firmware update successful!")
+        else:
+            print("Firmware update failed.")
+        hololink.stop()
+        sys.exit(0)
+
+    # Read master and slave firmware versions in a single burst session
+    adcam_inst.switch_from_standard_to_burst()
+    version = adcam_inst.get_fw_version_burst_mode(adcam.GET_MASTER_FIRMWARE_COMMAND)
     logging.info(f"{version=}")
+    adcam_inst.get_fw_version_burst_mode(adcam.GET_SLAVE_FIRMWARE_COMMAND)
+    adcam_inst.switch_from_burst_to_standard()
 
     if args.capture == 1:
         # Set up the application
@@ -1196,8 +1483,6 @@ def main():
             adcam_inst,
             args.frame_limit,
         )
-    if args.capture == 1:
-        # adcam_inst.set_mode ()
         application.run()
     elif args.capture == 2:
         logging.debug("Force stop capture..")

@@ -657,7 +657,7 @@ void Enumerator::configure_default_enumeration_strategies()
     // For those bootp-v1 configurations, provide default strategies
     Metadata hololink_lite_metadata;
     hololink_lite_metadata["board_description"] = "hololink-lite";
-    hololink_lite_metadata["gpio_pin_count"] = 16;
+    hololink_lite_metadata["gpio_pin_count"] = 32;
     auto hololink_lite_enumeration_strategy = std::make_shared<BasicEnumerationStrategy>(hololink_lite_metadata);
     uuid_strategies_[HOLOLINK_LITE_UUID] = hololink_lite_enumeration_strategy;
 
@@ -674,6 +674,7 @@ void Enumerator::configure_default_enumeration_strategies()
 
     Metadata microchip_polarfire_metadata;
     microchip_polarfire_metadata["board_description"] = "Microchip Polarfire";
+    microchip_polarfire_metadata["gpio_pin_count"] = 32;
     unsigned microchip_polarfire_total_sensors = 2;
     unsigned microchip_polarfire_total_dataplanes = 2;
     unsigned microchip_polarfire_sifs_per_sensor = 1;
