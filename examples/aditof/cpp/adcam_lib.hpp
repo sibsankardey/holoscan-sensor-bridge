@@ -51,11 +51,19 @@
 
 #define LOW_BYTE_MASK 0x00FF
 
+// Burst-mode read-payload commands serving CCB-derived data for the active mode.
+#define READ_PAYLOAD_INTRINSICS_CMD 0x01
+#define READ_PAYLOAD_INTRINSICS_LEN 56
+#define READ_PAYLOAD_DEALIAS_CMD 0x02
+#define READ_PAYLOAD_DEALIAS_LEN 32
+
 #include <cstdint>
 #include <getopt.h>
 #include <iostream>
 #include <memory>
 #include <string>
+
+#include "adcam_calibration.hpp"
 
 #include <hololink/common/cuda_helper.hpp>
 #include <hololink/common/tools.hpp>
@@ -294,6 +302,10 @@ public:
     void get_only_status();
     void get_imager_type_and_ccb_version();
 
+    /// Read the CCB-derived intrinsics and dealias parameters for the configured
+    /// capture mode out of the module. Returns false if the module did not answer.
+    bool read_calibration(AdcamCalibration& calibration);
+
     int probe_adcam_adtf3175();
     std::vector<uint8_t> force_stop_burst_mode();
     bool switch_from_standard_to_burst();
@@ -353,6 +365,12 @@ public:
 
 private:
     static void append_u16_be(std::vector<uint8_t>& out, uint16_t v);
+
+    /// Issue an ADSD3500 burst-mode read-payload command. Must be called while
+    /// the device is already in burst mode.
+    std::vector<uint8_t> read_payload_cmd(uint8_t cmd,
+        uint8_t argument,
+        uint16_t payload_len);
 
     void i2c_write_read(const std::vector<uint8_t>& write_bytes,
         size_t read_byte_count,

@@ -1,5 +1,7 @@
 #include "adcam_unpack_op.hpp"
 
+#include <algorithm>
+
 //==============================================================================
 //  JET COLOR MAP (256 × 3) stored in constant memory
 //------------------------------------------------------------------------------
@@ -220,8 +222,9 @@ void unpack_kernel_2(const uint8_t* raw,
 //==============================================================================
 //  KERNEL: jet_kernel
 //------------------------------------------------------------------------------
-//  Converts depth (uint16) → RGB using a Jet colormap.
-//  Depth is normalized to 0–255 using a fixed 4m range.
+//  Converts depth (uint16) → RGB using a Jet colormap over
+//  depth_min_mm..depth_max_mm. Closer returns clamp to the near end of the
+//  colormap; invalid (0) and beyond-max depths are painted black.
 //------------------------------------------------------------------------------
 //  depth : uint16_t* (device)
 //  rgb   : uint8_t*  (device) — output RGB image (size*3)
@@ -229,22 +232,79 @@ void unpack_kernel_2(const uint8_t* raw,
 __global__
 void jet_kernel(const uint16_t* depth,
                 uint8_t* rgb,
-                int size)
+                int size,
+                float depth_min_mm,
+                float depth_max_mm)
 {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= size) return;
 
     uint16_t d = depth[idx];
 
-    // Normalize depth to 0–255 (clamped)
-    uint8_t norm = min(255, (int)((float)d / 4000.0f * 255.0f));
+    uint8_t r = 0, g = 0, b = 0;
+    if ((d > 0) && ((float)d <= depth_max_mm)) {
+        const float scale = 255.0f / (depth_max_mm - depth_min_mm);
+        int norm = min(255, max(0, (int)(((float)d - depth_min_mm) * scale)));
+        r = JET_LUT[norm * 3 + 0];
+        g = JET_LUT[norm * 3 + 1];
+        b = JET_LUT[norm * 3 + 2];
+    }
 
-    // Lookup RGB triplet
-    rgb[idx * 3 + 0] = JET_LUT[norm * 3 + 0];
-    rgb[idx * 3 + 1] = JET_LUT[norm * 3 + 1];
-    rgb[idx * 3 + 2] = JET_LUT[norm * 3 + 2];
+    rgb[idx * 3 + 0] = r;
+    rgb[idx * 3 + 1] = g;
+    rgb[idx * 3 + 2] = b;
 }
 
+
+
+//==============================================================================
+//  KERNEL: depth_legend_kernel
+//------------------------------------------------------------------------------
+//  Draws the Jet colorbar into the depth RGB image: a vertical gradient with a
+//  white outline and a white tick every tick_step_mm. Bottom of the bar is
+//  depth_min_mm, top is depth_max_mm.
+//------------------------------------------------------------------------------
+//  rgb : uint8_t* (device) — depth RGB image, modified in place
+//==============================================================================
+__global__
+void depth_legend_kernel(uint8_t* rgb,
+                         int width,
+                         int x0,
+                         int y0,
+                         int bar_w,
+                         int bar_h,
+                         float depth_min_mm,
+                         float depth_max_mm,
+                         float tick_step_mm)
+{
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if ((x >= bar_w) || (y >= bar_h)) return;
+
+    float fraction = 1.0f - ((float)y + 0.5f) / (float)bar_h;
+    int norm = min(255, (int)(fraction * 255.0f));
+
+    uint8_t r = JET_LUT[norm * 3 + 0];
+    uint8_t g = JET_LUT[norm * 3 + 1];
+    uint8_t b = JET_LUT[norm * 3 + 2];
+
+    const float span = depth_max_mm - depth_min_mm;
+    const float value = depth_min_mm + fraction * span;
+    const float nearest_tick = roundf(value / tick_step_mm) * tick_step_mm;
+    const float mm_per_pixel = span / (float)bar_h;
+
+    bool outline = (x == 0) || (x == bar_w - 1) || (y == 0) || (y == bar_h - 1);
+    bool tick = (nearest_tick >= depth_min_mm)
+        && (fabsf(value - nearest_tick) <= mm_per_pixel)
+        && (x >= bar_w - max(2, bar_w / 3));
+
+    if (outline || tick) { r = g = b = 255; }
+
+    int pixel = ((y0 + y) * width + (x0 + x)) * 3;
+    rgb[pixel + 0] = r;
+    rgb[pixel + 1] = g;
+    rgb[pixel + 2] = b;
+}
 
 
 //==============================================================================
@@ -256,25 +316,60 @@ void jet_kernel(const uint16_t* depth,
 //  input : uint16_t* (device)
 //  rgb   : uint8_t*  (device)
 //  max_val : float     — full-scale value mapped to 255
+//  log_scale : bool    — compress the range logarithmically
 //==============================================================================
 __global__
 void grayscale_kernel(const uint16_t* input,
                       uint8_t* rgb,
                       int size,
-                      float max_val)
+                      float max_val,
+                      bool log_scale)
 {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= size) return;
 
-    uint16_t v = input[idx];
+    float v = (float)input[idx];
 
-    uint8_t norm = min(255, (int)((float)v * 255.0f / max_val));
+    float scaled = log_scale
+        ? (log1pf(v) / log1pf(max_val))
+        : (v / max_val);
+
+    uint8_t norm = min(255, (int)(scaled * 255.0f));
 
     rgb[idx * 3 + 0] = norm;
     rgb[idx * 3 + 1] = norm;
     rgb[idx * 3 + 2] = norm;
 }
 
+
+
+//==============================================================================
+//  KERNEL: radial_to_z_kernel
+//------------------------------------------------------------------------------
+//  Converts the ADSD3500 radial depth (distance along the pixel's line of
+//  sight) into Cartesian Z (distance along the optical axis).
+//
+//      z[i] = radial[i] * z_table[i]
+//
+//  z_table holds 1 / sqrt(xn^2 + yn^2 + 1) for the undistorted normalized
+//  coordinates of each pixel, and 0 where no valid Z exists.
+//------------------------------------------------------------------------------
+//  radial  : uint16_t* (device) — radial depth in mm
+//  z_table : float*    (device) — per-pixel scale
+//  z       : uint16_t* (device) — Cartesian Z in mm
+//==============================================================================
+__global__
+void radial_to_z_kernel(const uint16_t* radial,
+                        const float* z_table,
+                        uint16_t* z,
+                        int size)
+{
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= size) return;
+
+    float value = (float)radial[idx] * z_table[idx];
+    z[idx] = (uint16_t)fminf(fmaxf(value + 0.5f, 0.0f), 65535.0f);
+}
 
 
 //==============================================================================
@@ -322,15 +417,43 @@ void unpack_kernel_launch(const uint8_t* raw,
 void jet_kernel_launch(const uint16_t* depth,
                        uint8_t* rgb,
                        int size,
-                       cudaStream_t stream)
+                       cudaStream_t stream,
+                       float depth_min_mm,
+                       float depth_max_mm)
 {
     int threads = 256;
     int blocks = (size + threads - 1) / threads;
 
     jet_kernel<<<blocks, threads, 0, stream>>>(
-        depth, rgb, size);
+        depth, rgb, size, depth_min_mm, depth_max_mm);
 }
 
+
+
+//------------------------------------------------------------------------------
+// Launch the colorbar legend kernel
+//------------------------------------------------------------------------------
+void depth_legend_kernel_launch(uint8_t* rgb,
+                                int width,
+                                int height,
+                                cudaStream_t stream,
+                                float depth_min_mm,
+                                float depth_max_mm)
+{
+    int x0 = (int)(kDepthLegendBarX * width);
+    int y0 = (int)(kDepthLegendBarY * height);
+    int bar_w = std::min((int)(kDepthLegendBarWidth * width), width - x0);
+    int bar_h = std::min((int)(kDepthLegendBarHeight * height), height - y0);
+    if ((bar_w < 3) || (bar_h < 3)) return;
+
+    dim3 threads(16, 16);
+    dim3 blocks((bar_w + threads.x - 1) / threads.x,
+        (bar_h + threads.y - 1) / threads.y);
+
+    depth_legend_kernel<<<blocks, threads, 0, stream>>>(
+        rgb, width, x0, y0, bar_w, bar_h, depth_min_mm, depth_max_mm,
+        depth_legend_tick_step_mm(depth_min_mm, depth_max_mm));
+}
 
 
 //------------------------------------------------------------------------------
@@ -341,13 +464,32 @@ void grayscale_kernel_launch(const uint16_t* input,
                              uint8_t* rgb,
                              int size,
                              cudaStream_t stream,
-                             float max_val)
+                             float max_val,
+                             bool log_scale)
 {
     int threads = 256;
     int blocks = (size + threads - 1) / threads;
 
     grayscale_kernel<<<blocks, threads, 0, stream>>>(
-        input, rgb, size, max_val);
+        input, rgb, size, max_val, log_scale);
+}
+
+
+
+//------------------------------------------------------------------------------
+// Launch radial → Cartesian Z kernel
+//------------------------------------------------------------------------------
+void radial_to_z_kernel_launch(const uint16_t* radial,
+                               const float* z_table,
+                               uint16_t* z,
+                               int size,
+                               cudaStream_t stream)
+{
+    int threads = 256;
+    int blocks = (size + threads - 1) / threads;
+
+    radial_to_z_kernel<<<blocks, threads, 0, stream>>>(
+        radial, z_table, z, size);
 }
 
 

@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstring>
 #include <iterator>
 #include <stdexcept>
 #include <thread>
@@ -736,6 +737,77 @@ std::vector<uint8_t> Adcam::get_fw_version_burst_mode(uint8_t cmd)
 }
 
 void Adcam::get_chip_status() { get_status(); }
+
+std::vector<uint8_t> Adcam::read_payload_cmd(uint8_t cmd,
+    uint8_t argument,
+    uint16_t payload_len)
+{
+    // 16-byte burst command frame, same layout as get_fw_version_burst_mode():
+    //   [0]     0xAD marker
+    //   [1:2]   payload length, big endian
+    //   [3]     command
+    //   [4:7]   reserved
+    //   [8:11]  checksum of bytes [1:7], little endian
+    //   [12]    command argument (capture mode for commands 0x01 / 0x02)
+    //   [13:15] reserved
+    const uint8_t len_hi = static_cast<uint8_t>(payload_len >> 8);
+    const uint8_t len_lo = static_cast<uint8_t>(payload_len & 0xFF);
+    const uint16_t checksum = static_cast<uint16_t>(len_hi + len_lo + cmd);
+
+    uint16_t reg[] = { 8,
+        static_cast<uint16_t>(0xAD00 | len_hi),
+        static_cast<uint16_t>((len_lo << 8) | cmd),
+        0x0000,
+        0x0000,
+        static_cast<uint16_t>(((checksum & 0xFF) << 8) | ((checksum >> 8) & 0xFF)),
+        0x0000,
+        static_cast<uint16_t>(argument << 8),
+        0x0000 };
+
+    auto resp = set_register16_response(reg, payload_len);
+    if (resp.size() != payload_len) {
+        HOLOSCAN_LOG_ERROR("read_payload_cmd: command 0x{:02X} returned {} bytes "
+                           "(expected {})",
+            cmd, resp.size(), payload_len);
+        resp.clear();
+    }
+    return resp;
+}
+
+bool Adcam::read_calibration(AdcamCalibration& calibration)
+{
+    if (!switch_from_standard_to_burst()) {
+        return false;
+    }
+    // The firmware needs a moment before it serves payloads in burst mode.
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+    auto intrinsics = read_payload_cmd(READ_PAYLOAD_INTRINSICS_CMD,
+        static_cast<uint8_t>(adcam_mode_), READ_PAYLOAD_INTRINSICS_LEN);
+    auto dealias = read_payload_cmd(READ_PAYLOAD_DEALIAS_CMD,
+        static_cast<uint8_t>(adcam_mode_), READ_PAYLOAD_DEALIAS_LEN);
+
+    switch_from_burst_to_standard();
+
+    if (intrinsics.empty() || dealias.empty()) {
+        HOLOSCAN_LOG_ERROR("read_calibration: failed to read calibration for mode {}",
+            adcam_mode_);
+        return false;
+    }
+
+    std::memcpy(&calibration.intrinsics, intrinsics.data(), sizeof(calibration.intrinsics));
+    std::memcpy(&calibration.dealias, dealias.data(), sizeof(calibration.dealias));
+
+    HOLOSCAN_LOG_INFO("Module calibration for mode {}: fx={:.3f} fy={:.3f} "
+                      "cx={:.3f} cy={:.3f} sensor={}x{} bin={}x{} offset={},{}",
+        adcam_mode_, calibration.intrinsics.fx, calibration.intrinsics.fy,
+        calibration.intrinsics.cx, calibration.intrinsics.cy,
+        calibration.dealias.n_sensor_rows, calibration.dealias.n_sensor_cols,
+        calibration.dealias.row_bin_factor, calibration.dealias.col_bin_factor,
+        calibration.dealias.n_offset_rows, calibration.dealias.n_offset_cols);
+
+    return true;
+}
 
 // -----------------------------------------------------------------------------
 // Stream control (legacy function names preserved)

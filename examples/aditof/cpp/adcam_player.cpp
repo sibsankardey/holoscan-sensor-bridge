@@ -17,8 +17,10 @@
 
 #include <getopt.h>
 
+#include <cstdio>
 #include <iostream>
 #include <string>
+#include <vector>
 
 #include <hololink/common/cuda_helper.hpp>
 #include <hololink/common/tools.hpp>
@@ -39,6 +41,39 @@
 #include <holoscan/operators/holoviz/holoviz.hpp>
 
 namespace {
+
+// Tick labels of the depth colorbar; one per tick the unpack operator positions.
+std::vector<std::string> depth_legend_labels(float depth_min_mm, float depth_max_mm)
+{
+    const float step_mm = depth_legend_tick_step_mm(depth_min_mm, depth_max_mm);
+    const float first_mm = depth_legend_first_tick_mm(depth_min_mm, depth_max_mm);
+    const int ticks = depth_legend_ticks(depth_min_mm, depth_max_mm);
+
+    std::vector<std::string> labels;
+    labels.reserve(ticks);
+    for (int i = 0; i < ticks; ++i) {
+        char label[16];
+        std::snprintf(label, sizeof(label), "%.0f cm", (first_mm + i * step_mm) / 10.0f);
+        labels.emplace_back(label);
+    }
+    return labels;
+}
+
+// Text layer holding the colorbar tick labels, drawn on top of the depth image.
+holoscan::ops::HolovizOp::InputSpec depth_legend_spec(
+    const std::vector<holoscan::ops::HolovizOp::InputSpec::View>& views,
+    float depth_min_mm,
+    float depth_max_mm)
+{
+    holoscan::ops::HolovizOp::InputSpec spec {
+        "DepthLegend", holoscan::ops::HolovizOp::InputType::TEXT
+    };
+    spec.text_ = depth_legend_labels(depth_min_mm, depth_max_mm);
+    spec.color_ = { 1.0f, 1.0f, 1.0f, 1.0f };
+    spec.priority_ = 1;
+    spec.views_ = views;
+    return spec;
+}
 
 //==============================================================================
 //  HoloscanApplication
@@ -63,7 +98,12 @@ public:
         const std::string& ibv_name,
         uint32_t ibv_port,
         std::shared_ptr<hololink::sensors::Adcam> adcam_inst_,
-        int64_t frame_limit)
+        int64_t frame_limit,
+        int32_t profile_avg_fps,
+        std::vector<float> z_table,
+        bool ab_log_scale,
+        float depth_min_mm,
+        float depth_max_mm)
         : headless_(headless)
         , fullscreen_(fullscreen)
         , cuda_context_(cuda_context)
@@ -73,6 +113,11 @@ public:
         , ibv_port_(ibv_port)
         , adcam_inst(adcam_inst_)
         , frame_limit_(frame_limit)
+        , do_profile_avg_fps_(profile_avg_fps)
+        , z_table_(std::move(z_table))
+        , ab_log_scale_(ab_log_scale)
+        , depth_min_mm_(depth_min_mm)
+        , depth_max_mm_(depth_max_mm)
     {
     }
 
@@ -183,7 +228,7 @@ public:
             "ADTF_output_pool",
             /*storage_type=*/1,
             adcam_inst->get_width() * adcam_inst->get_pixel_size_bytes() * adcam_inst->get_height() * sizeof(uint16_t),
-            /*num_blocks=*/8);
+            /*num_blocks=*/12);
 
         // int num_planes = adcam_inst->get_mode() < 2 ? 2:3;
         int num_planes = adcam_inst->get_numPlane();
@@ -198,7 +243,12 @@ public:
             holoscan::Arg("height", (int)adcam_inst->get_abs_height()),
             holoscan::Arg("allocator", device_allocator_adtf),
             holoscan::Arg("in_tensor_name", ""),
-            holoscan::Arg("out_tensor_name", "output"));
+            holoscan::Arg("out_tensor_name", "output"),
+            holoscan::Arg("profile_avg_fps", do_profile_avg_fps_),
+            holoscan::Arg("z_table", z_table_),
+            holoscan::Arg("ab_log_scale", ab_log_scale_),
+            holoscan::Arg("depth_min_mm", depth_min_mm_),
+            holoscan::Arg("depth_max_mm", depth_max_mm_));
 
         //======================================================================
         // 8. Holoviz visualization setup
@@ -226,7 +276,8 @@ public:
                 holoscan::Arg("framebuffer_srgb", true),
                 holoscan::Arg("tensors",
                     std::vector<holoscan::ops::HolovizOp::InputSpec> {
-                        left_spec, center_spec }),
+                        left_spec, center_spec,
+                        depth_legend_spec(left_spec.views_, depth_min_mm_, depth_max_mm_) }),
                 holoscan::Arg("window_title", window_title));
         } else {
             // ----- Left: Depth -----
@@ -255,7 +306,8 @@ public:
                 holoscan::Arg("framebuffer_srgb", true),
                 holoscan::Arg("tensors",
                     std::vector<holoscan::ops::HolovizOp::InputSpec> {
-                        left_spec, center_spec, right_spec }),
+                        left_spec, center_spec, right_spec,
+                        depth_legend_spec(left_spec.views_, depth_min_mm_, depth_max_mm_) }),
                 holoscan::Arg("window_title", window_title));
         }
 
@@ -280,6 +332,11 @@ private:
     const uint32_t ibv_port_;
     std::shared_ptr<hololink::sensors::Adcam> adcam_inst;
     const int64_t frame_limit_;
+    const int32_t do_profile_avg_fps_;
+    const std::vector<float> z_table_;
+    const bool ab_log_scale_;
+    const float depth_min_mm_;
+    const float depth_max_mm_;
 };
 
 } // anonymous namespace
@@ -296,8 +353,13 @@ int main(int argc, char** argv)
     int32_t reset_pin = 0;
     int32_t num_planes = 3;
     int32_t tof_fps = 30;
-    int32_t do_profile = 30;
+    int32_t do_profile = 0;
+    int32_t do_profile_avg_fps = 0;
     int32_t metadata_sz = 0;
+    bool cartesian_depth = false;
+    bool ab_log_scale = true;
+    float depth_min_mm = kDepthMinMmDefault;
+    float depth_max_mm = kDepthMaxMmDefault;
     uint16_t mipi_lane_speed = MIPI_SPEED_2_5_GBPS; /* 2.5Gbps/lane */
     bool headless = false;
     bool fullscreen = false;
@@ -345,8 +407,13 @@ int main(int argc, char** argv)
         { "numPlanes", required_argument, nullptr, 0 },
         { "captureFps", required_argument, nullptr, 0 },
         { "metadata", required_argument, nullptr, 0 },
+        { "depthType", required_argument, nullptr, 0 },
+        { "abScale", required_argument, nullptr, 0 },
+        { "depthMin", required_argument, nullptr, 0 },
+        { "depthMax", required_argument, nullptr, 0 },
         { "maxMipi", required_argument, nullptr, 0 },
         { "profile", required_argument, nullptr, 0 },
+        { "profileAvgFps", required_argument, nullptr, 0 },
         { "log-level", required_argument, nullptr, 0 },
         { 0, 0, nullptr, 0 }
     };
@@ -387,8 +454,14 @@ int main(int argc, char** argv)
             } else if (opt->name == std::string("captureFps")) {
                 tof_fps = std::stoi(argument);
 
-                if (tof_fps < 1 || tof_fps > 30) {
-                    throw std::runtime_error(fmt::format("Unhandled captureFps (1-30) \"{}\"", tof_fps));
+                if (tof_fps < 1 || tof_fps > 70) {
+                    throw std::runtime_error(fmt::format("Unhandled captureFps (1-70) \"{}\"", tof_fps));
+                }
+            } else if (opt->name == std::string("profileAvgFps")) {
+                do_profile_avg_fps = std::stoi(argument);
+
+                if (do_profile_avg_fps < 0) {
+                    throw std::runtime_error(fmt::format("Unhandled profileAvgFps. Profiles FPS processed averaged across x seconds \"{}\"", do_profile_avg_fps));
                 }
             } else if (opt->name == std::string("metadata")) {
                 metadata_sz = std::stoi(argument);
@@ -396,6 +469,32 @@ int main(int argc, char** argv)
                 if (metadata_sz < 0 || metadata_sz > 256) {
                     throw std::runtime_error(fmt::format("Unhandled metadata size (1-256) \"{}\"", metadata_sz));
                 }
+            } else if (opt->name == std::string("depthType")) {
+                if (argument == "radial") {
+                    cartesian_depth = false;
+                } else if (argument == "z") {
+                    cartesian_depth = true;
+                } else {
+                    throw std::runtime_error(fmt::format(
+                        "Unhandled depthType (radial/z) \"{}\"", argument));
+                }
+            } else if (opt->name == std::string("abScale")) {
+                if (argument == "log") {
+                    ab_log_scale = true;
+                } else if (argument == "linear") {
+                    ab_log_scale = false;
+                } else {
+                    throw std::runtime_error(fmt::format(
+                        "Unhandled abScale (log/linear) \"{}\"", argument));
+                }
+            } else if (opt->name == std::string("depthMin")) {
+                depth_min_mm = std::stof(argument);
+                if (depth_min_mm < 0.0f) {
+                    throw std::runtime_error(fmt::format(
+                        "Unhandled depthMin (must be >= 0 mm) \"{}\"", argument));
+                }
+            } else if (opt->name == std::string("depthMax")) {
+                depth_max_mm = std::stof(argument);
             } else if (opt->name == std::string("maxMipi")) {
                 mipi_lane_speed = (uint16_t)std::stoi(argument);
 
@@ -478,18 +577,29 @@ int main(int argc, char** argv)
                       << "  --capture <0/1>      Capture and display Adcam data\n"
                       << "  --captureMode <0-6>  Adcam Capture code (0-6), default 6\n"
                       << "  --numPlanes <2/3>    Adcam Capture planes (Depth, AB, Conf), default 3\n"
-                      << "  --captureFps <1-30>  Adcam Capture FPS (some FPS may not work), default 30\n"
+                      << "  --captureFps <1-70>  Adcam Capture FPS (some FPS may not work), default 30\n"
                       << "  --resetAdcam <0/1>   Reset ADCAM module\n"
                       << "  --resetPin <0-31>    Reset ADCAM pin, refer readme, default 0\n"
                       << "  --metadata <0-256>   Metadata to be removed from MIPI receive, refer readme, default 0\n"
+                      << "  --depthType <radial/z>  Report radial depth (default) or Cartesian Z, using the intrinsics read from the module\n"
+                      << "  --abScale <log/linear>  Active brightness display scaling (default log)\n"
+                      << "  --depthMin <mm>      Depth at the bottom of the colormap, default " << depth_min_mm << " mm\n"
+                      << "  --depthMax <mm>      Depth at the top of the colormap, default " << depth_max_mm << " mm\n"
                       << "  --maxMipi  <1000/1050/2000/2500>  Max supported Mipi per lane speed (default 2.5Gbps, 1G/1.5G/2G supported)\n"
                       << "  --profile  Profile of GPIO timing\n"
+                      << "  --profileAvgFps <Sec>  Profile of FPS processed averaged across <Sec>\n"
                       << "  --firmwareUpdate <manifest.yaml>  Update ADCAM firmware using the given manifest file\n";
             return EXIT_SUCCESS;
 
         } else {
             throw std::runtime_error("Unhandled option");
         }
+    }
+
+    if (depth_max_mm <= depth_min_mm) {
+        throw std::runtime_error(fmt::format(
+            "depthMax ({}) must be greater than depthMin ({})",
+            depth_max_mm, depth_min_mm));
     }
 
     //--------------------------------------------------------------------------
@@ -600,14 +710,37 @@ int main(int argc, char** argv)
         adcam_inst->get_imager_type_and_ccb_version();
 
         //--------------------------------------------------------------------------
-        // 4.5 Create and run Holoscan application
+        // 4.5 Optional radial -> Cartesian Z conversion table
+        //--------------------------------------------------------------------------
+        std::vector<float> z_table;
+        if (cartesian_depth) {
+            hololink::sensors::AdcamCalibration calibration;
+            if (!adcam_inst->read_calibration(calibration)) {
+                std::cerr << "Could not read calibration from the module; "
+                             "reporting radial depth."
+                          << std::endl;
+            } else {
+                z_table = hololink::sensors::adcam_generate_z_table(calibration,
+                    (int)adcam_inst->get_abs_height(),
+                    (int)adcam_inst->get_abs_width());
+                if (z_table.empty()) {
+                    std::cerr << "Could not build the radial to Z table; "
+                                 "reporting radial depth."
+                              << std::endl;
+                }
+            }
+        }
+
+        //--------------------------------------------------------------------------
+        // 4.6 Create and run Holoscan application
         //--------------------------------------------------------------------------
         if (do_capture > 0) {
             auto application = holoscan::make_application<HoloscanApplication>(
                 headless, fullscreen,
                 cu_context, cu_device_ordinal,
                 hololink_channel, ibv_name, ibv_port,
-                adcam_inst, frame_limit);
+                adcam_inst, frame_limit, do_profile_avg_fps, z_table, ab_log_scale,
+                depth_min_mm, depth_max_mm);
 
             // NO need to do reset, if needed, add this line
             // hololink->reset();

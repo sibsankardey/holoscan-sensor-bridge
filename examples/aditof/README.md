@@ -1,10 +1,9 @@
 # ADI ToF Camera Player (`adcam_player`)
 
-A Holoscan-based application for capturing, processing, and visualizing depth
-data from an ADI ADTF3175 Time-of-Flight camera connected via the Holoscan
-Sensor Bridge (HSB).
+A Holoscan-based application for capturing, processing, and visualizing depth data from
+an ADI ADTF3175 Time-of-Flight camera connected via the Holoscan Sensor Bridge (HSB).
 
----
+______________________________________________________________________
 
 ## Table of Contents
 
@@ -21,21 +20,21 @@ Sensor Bridge (HSB).
 - [Firmware Update](#firmware-update)
 - [Troubleshooting](#troubleshooting)
 
----
+______________________________________________________________________
 
 ## Overview
 
-`adcam_player` connects to the HSB over the network, initializes the ADTF3175
-ToF sensor via I2C, receives MIPI/CSI frames, unpacks the ADI 5-byte-per-pixel
-format, and displays three output planes side-by-side using Holoviz:
+`adcam_player` connects to the HSB over the network, initializes the ADTF3175 ToF sensor
+via I2C, receives MIPI/CSI frames, unpacks the ADI 5-byte-per-pixel format, and displays
+three output planes side-by-side using Holoviz:
 
-| Panel | Content |
-|-------|---------|
-| Left (0 – 33%) | Depth |
+| Panel             | Content           |
+| ----------------- | ----------------- |
+| Left (0 – 33%)    | Depth             |
 | Center (33 – 66%) | Active Brightness |
-| Right (66 – 100%) | Confidence |
+| Right (66 – 100%) | Confidence        |
 
----
+______________________________________________________________________
 
 ## End-to-End Data Flow
 
@@ -151,7 +150,7 @@ format, and displays three output planes side-by-side using Holoviz:
     - Saved frames
 ```
 
----
+______________________________________________________________________
 
 ## Prerequisites
 
@@ -161,7 +160,7 @@ format, and displays three output planes side-by-side using Holoviz:
 - CUDA-capable GPU
 - (Optional) InfiniBand/ROCE NIC for high-bandwidth reception
 
----
+______________________________________________________________________
 
 ## Getting the Source
 
@@ -170,7 +169,7 @@ git clone https://github.com/nvidia-holoscan/holoscan-sensor-bridge.git
 cd holoscan-sensor-bridge
 ```
 
----
+______________________________________________________________________
 
 ## Build
 
@@ -215,7 +214,7 @@ ls examples/aditof/
 ./build/examples/aditof/cpp/adcam_player
 ```
 
----
+______________________________________________________________________
 
 ## Usage
 
@@ -317,89 +316,94 @@ python3 examples/aditof/python/adcam_player.py --captureMode 8 --capture 1
 python3 examples/aditof/python/adcam_player.py --firmwareUpdate adi_manifest.yaml
 ```
 
----
+______________________________________________________________________
 
 ## Command-Line Options
 
 ### Common options (C++ and Python)
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `--resetAdcam <0\|1>` | int | `0` | Full power-on reset sequence (power rails + GPIO); prints firmware versions after reset |
-| `--resetPin <0-31>` | int | `0` | GPIO pin number used for camera reset |
-| `--captureMode <n>` | int | `6` | Capture mode (0–9); valid modes depend on detected imager type |
-| `--capture <0\|1>` | int | `0` | `1` = start capture pipeline |
-| `--firmwareUpdate <file>` | string | — | Path to firmware manifest YAML |
-| `--frame-limit <n>` | int | `300` | Stop after N frames (`0` = unlimited) |
-| `--ibv-name <dev>` | string | auto-detected | InfiniBand/network device name |
-| `--ibv-port <n>` | int | `1` | InfiniBand port number |
-| `--log-level <level>` | string | `info` | Log verbosity: `trace` `debug` `info` `warn` `error` |
-| `-h`, `--help` | flag | — | Print usage |
+| Option                    | Type   | Default       | Description                                                                             |
+| ------------------------- | ------ | ------------- | --------------------------------------------------------------------------------------- |
+| `--resetAdcam <0\|1>`     | int    | `0`           | Full power-on reset sequence (power rails + GPIO); prints firmware versions after reset |
+| `--resetPin <0-31>`       | int    | `0`           | GPIO pin number used for camera reset                                                   |
+| `--captureMode <n>`       | int    | `6`           | Capture mode (0–9); valid modes depend on detected imager type                          |
+| `--capture <0\|1>`        | int    | `0`           | `1` = start capture pipeline                                                            |
+| `--firmwareUpdate <file>` | string | —             | Path to firmware manifest YAML                                                          |
+| `--frame-limit <n>`       | int    | `300`         | Stop after N frames (`0` = unlimited)                                                   |
+| `--ibv-name <dev>`        | string | auto-detected | InfiniBand/network device name                                                          |
+| `--ibv-port <n>`          | int    | `1`           | InfiniBand port number                                                                  |
+| `--log-level <level>`     | string | `info`        | Log verbosity: `trace` `debug` `info` `warn` `error`                                    |
+| `-h`, `--help`            | flag   | —             | Print usage                                                                             |
 
 ### C++ only options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `--hololink <ip>` | string | `192.168.0.2` | Override HSB board IP address |
-| `--headless` | flag | off | Run without display window (no HolovizOp GUI) |
-| `--fullscreen` | flag | off | Run Holoviz in fullscreen mode |
+| Option            | Type   | Default       | Description                                   |
+| ----------------- | ------ | ------------- | --------------------------------------------- |
+| `--hololink <ip>` | string | `192.168.0.2` | Override HSB board IP address                 |
+| `--headless`      | flag   | off           | Run without display window (no HolovizOp GUI) |
+| `--fullscreen`    | flag   | off           | Run Holoviz in fullscreen mode                |
 
 ### Python only options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `--resetOnly <0\|1>` / `-RO` | int | `0` | GPIO-only soft reset (no power cycle) |
-| `--getStatus <0\|1>` / `-gs` | int | `0` | Read and log chip status registers |
-| `--force` | flag | off | Allow firmware downgrade (requires `--firmwareUpdate`) |
+| Option                       | Type | Default | Description                                            |
+| ---------------------------- | ---- | ------- | ------------------------------------------------------ |
+| `--resetOnly <0\|1>` / `-RO` | int  | `0`     | GPIO-only soft reset (no power cycle)                  |
+| `--getStatus <0\|1>` / `-gs` | int  | `0`     | Read and log chip status registers                     |
+| `--force`                    | flag | off     | Allow firmware downgrade (requires `--firmwareUpdate`) |
 
 **Capture mode → frame geometry and imager settings**
 
-The correct mode table is selected automatically at runtime via `get_imager_type_and_ccb_version()`
-after the sensor is detected. Two tables are defined in `adcam_lib.hpp`:
+The correct mode table is selected automatically at runtime via
+`get_imager_type_and_ccb_version()` after the sensor is detected. Two tables are defined
+in `adcam_lib.hpp`:
 
 #### `adsd3100_standardModes` — ADSD3100
 
-| Mode Number| MIPI width (bytes) | MIPI height | Pixel dims | Type | Dump Type | Range |
-|------|-------------------|-------------|------------|------|-----------|-------|
-| 0 | 3072 | 1707 | 1024 × 1024 | MP | Native | Short |
-| 1 | 3072 | 1707 | 1024 × 1024 | MP | Native | Long |
-| 2 | 2560 | 512 | 512 × 512 | QMP | 2x2 analog | Short |
-| 3 | 2560 | 512 | 512 × 512 | QMP | 2x2 analog | Long |
-| 5 | 2560 | 512 | 512 × 512 | QMP | mixed bin | Long |
-| **6** (default) | **2560** | **512** | **512 × 512** | QMP | mixed bin | Short |
+| Mode Number     | MIPI width (bytes) | MIPI height | Pixel dims    | Type | Dump Type  | Range |
+| --------------- | ------------------ | ----------- | ------------- | ---- | ---------- | ----- |
+| 0               | 3072               | 1707        | 1024 × 1024   | MP   | Native     | Short |
+| 1               | 3072               | 1707        | 1024 × 1024   | MP   | Native     | Long  |
+| 2               | 2560               | 512         | 512 × 512     | QMP  | 2x2 analog | Short |
+| 3               | 2560               | 512         | 512 × 512     | QMP  | 2x2 analog | Long  |
+| 5               | 2560               | 512         | 512 × 512     | QMP  | mixed bin  | Long  |
+| **6** (default) | **2560**           | **512**     | **512 × 512** | QMP  | mixed bin  | Short |
 
-All modes: `phase_depth_bits`=6 (16-bit), `ab_bits`=6 (16-bit), `confidence_bits`=2 (8-bit), `depth_enable`=1, `output_mipi`=2.
-MP modes require 1.5 Gbps MIPI; QMP modes require 1 Gbps MIPI.
+All modes: `phase_depth_bits`=6 (16-bit), `ab_bits`=6 (16-bit), `confidence_bits`=2
+(8-bit), `depth_enable`=1, `output_mipi`=2. MP modes require 1.5 Gbps MIPI; QMP modes
+require 1 Gbps MIPI.
 
 #### `adtf3066_standardModes` — ADTF3066
 
-| Mode Number| MIPI width (bytes) | MIPI height | Pixel dims | Type | Dump Type | Range |
-|------|-------------------|-------------|------------|------|-----------|-------|
-| 0 | 2560 | 640 | 512 × 640 | VGA | native | Short |
-| 1 | 2560 | 640 | 512 × 640 | VGA | native | Long |
-| 7 | 2560 | 640 | 512 × 640 | VGA | native | Long |
-| 3 | 1280 | 320 | 256 × 320 | QVGA | 2x2 analog | Long |
-| **6** (default) | **1280** | **320** | **256 × 320** | QVGA | mixed bin | Short |
-| 8 | 1280 | 320 | 256 × 320 | QVGA | mixed bin | Long |
+| Mode Number     | MIPI width (bytes) | MIPI height | Pixel dims    | Type | Dump Type  | Range |
+| --------------- | ------------------ | ----------- | ------------- | ---- | ---------- | ----- |
+| 0               | 2560               | 640         | 512 × 640     | VGA  | native     | Short |
+| 1               | 2560               | 640         | 512 × 640     | VGA  | native     | Long  |
+| 7               | 2560               | 640         | 512 × 640     | VGA  | native     | Long  |
+| 3               | 1280               | 320         | 256 × 320     | QVGA | 2x2 analog | Long  |
+| **6** (default) | **1280**           | **320**     | **256 × 320** | QVGA | mixed bin  | Short |
+| 8               | 1280               | 320         | 256 × 320     | QVGA | mixed bin  | Long  |
 
-All ADTF3066 modes: `phase_depth_bits`=6 (16-bit), `ab_bits`=6 (16-bit), `confidence_bits`=2 (8-bit), `ab_averaging`=1, `depth_enable`=1, `output_mipi`=2, 1 Gbps MIPI.
+All ADTF3066 modes: `phase_depth_bits`=6 (16-bit), `ab_bits`=6 (16-bit),
+`confidence_bits`=2 (8-bit), `ab_averaging`=1, `depth_enable`=1, `output_mipi`=2, 1 Gbps
+MIPI.
 
 **Imager settings field encoding:**
 
-| Field | Valid values | Encoding |
-|-------|-------------|----------|
+| Field              | Valid values     | Encoding                                                             |
+| ------------------ | ---------------- | -------------------------------------------------------------------- |
 | `phase_depth_bits` | 0, 2, 3, 4, 5, 6 | `0`=0-bit, `2`=8-bit, `3`=10-bit, `4`=12-bit, `5`=14-bit, `6`=16-bit |
-| `ab_bits` | 0, 2, 3, 4, 5, 6 | `0`=0-bit, `2`=8-bit, `3`=10-bit, `4`=12-bit, `5`=14-bit, `6`=16-bit |
-| `confidence_bits` | 0, 1, 2 | `0`=off, `1`=4-bit, `2`=8-bit |
-| `ab_averaging` | 0, 1 | bool: `0`=off, `1`=on |
-| `depth_enable` | 0, 1 | bool: `0`=off, `1`=on |
-| `output_mipi` | 0, 1, 2 | number of MIPI output lanes |
+| `ab_bits`          | 0, 2, 3, 4, 5, 6 | `0`=0-bit, `2`=8-bit, `3`=10-bit, `4`=12-bit, `5`=14-bit, `6`=16-bit |
+| `confidence_bits`  | 0, 1, 2          | `0`=off, `1`=4-bit, `2`=8-bit                                        |
+| `ab_averaging`     | 0, 1             | bool: `0`=off, `1`=on                                                |
+| `depth_enable`     | 0, 1             | bool: `0`=off, `1`=on                                                |
+| `output_mipi`      | 0, 1, 2          | number of MIPI output lanes                                          |
 
 **ADSD3500 Set Imager Mode command** — `set_mode()` in `adcam_lib.cpp`:
 
-`set_mode()` sends a two-word I²C command. The correct mode table (`adsd3100_standardModes`
-or `adtf3066_standardModes`) is selected from `imager_type_` (set by `get_imager_type_and_ccb_version()`).
-Both words are built dynamically via `adcam_make_mode_settings()`:
+`set_mode()` sends a two-word I²C command. The correct mode table
+(`adsd3100_standardModes` or `adtf3066_standardModes`) is selected from `imager_type_`
+(set by `get_imager_type_and_ccb_version()`). Both words are built dynamically via
+`adcam_make_mode_settings()`:
 
 ```
 Word 1: 0xDAXX   — XX = mode number (e.g. mode 6 → 0xDA06)
@@ -417,12 +421,12 @@ Word 2: 0xYYYY   — bit-packed imager settings:
 
 Example computed values:
 
-| Modes (ADSD3100) | `phase_depth_bits` | `ab_bits` | `confidence_bits` | `ab_averaging` | Word 2 |
-|------------------|--------------------|-----------|-------------------|---------------|--------|
-| 0, 1 | 6 | 6 | 2 | 0 | `0x2807` |
-| 2, 3, 5, 6 | 6 | 6 | 2 | 1 | `0x280F` |
+| Modes (ADSD3100) | `phase_depth_bits` | `ab_bits` | `confidence_bits` | `ab_averaging` | Word 2   |
+| ---------------- | ------------------ | --------- | ----------------- | -------------- | -------- |
+| 0, 1             | 6                  | 6         | 2                 | 0              | `0x2807` |
+| 2, 3, 5, 6       | 6                  | 6         | 2                 | 1              | `0x280F` |
 
----
+______________________________________________________________________
 
 ## Execution Flow
 
@@ -470,6 +474,7 @@ Programmer::program_and_verify_images()
        ├─ write firmware pages
        └─ get_fw_version_burst_mode() Verify new version
 ```
+
 After a successful update the process exits; `--capture` is not required.
 
 ### 4. Sensor Probe and Imager Detection
@@ -489,9 +494,9 @@ get_imager_type_and_ccb_version()           Read register 0x0032 (ADSD3500_CMD_G
 
 ### 5. Capture Pipeline (if `--capture 1`)
 
-`compose()` is an override of `holoscan::Application::compose()`. It is **never
-called directly** — the Holoscan framework calls it once inside `application->run()` to
-build the operator graph before the scheduler starts.
+`compose()` is an override of `holoscan::Application::compose()`. It is **never called
+directly** — the Holoscan framework calls it once inside `application->run()` to build
+the operator graph before the scheduler starts.
 
 ```
 main()
@@ -540,10 +545,11 @@ main()
 ```
 
 Stream start/stop callbacks:
-- `device_start` → `Adcam::start()` — enable MIPI clock continuous mode, start streaming
-- `device_stop`  → `Adcam::stop()`  — stop streaming
 
----
+- `device_start` → `Adcam::start()` — enable MIPI clock continuous mode, start streaming
+- `device_stop` → `Adcam::stop()` — stop streaming
+
+______________________________________________________________________
 
 ## Operator Graph
 
@@ -559,35 +565,37 @@ Stream start/stop callbacks:
   Depth    ActiveBR   Confidence
 ```
 
----
+______________________________________________________________________
 
 ## ADTFUnpackOp — Frame Unpacking
 
-`ADTFUnpackOp` is implemented across two source files and a shared header, all located under `cpp/`:
+`ADTFUnpackOp` is implemented across two source files and a shared header, all located
+under `cpp/`:
 
-| File | Compiler | Role |
-|---|---|---|
-| `cpp/adcam_unpack_op.hpp` | — | Shared declarations: CUDA kernel launcher prototypes + operator class definition |
-| `cpp/adcam_unpack_op.cu` | `nvcc` | GPU side — `__global__` CUDA kernels + launch wrapper functions |
-| `cpp/adcam_unpack_op.cpp` | `g++` | CPU side — Holoscan operator lifecycle + GXF memory management; calls the launch wrappers from the `.cu` |
+| File                      | Compiler | Role                                                                                                     |
+| ------------------------- | -------- | -------------------------------------------------------------------------------------------------------- |
+| `cpp/adcam_unpack_op.hpp` | —        | Shared declarations: CUDA kernel launcher prototypes + operator class definition                         |
+| `cpp/adcam_unpack_op.cu`  | `nvcc`   | GPU side — `__global__` CUDA kernels + launch wrapper functions                                          |
+| `cpp/adcam_unpack_op.cpp` | `g++`    | CPU side — Holoscan operator lifecycle + GXF memory management; calls the launch wrappers from the `.cu` |
 
 Both object files are linked together into the `adcam_player` binary.
 
----
+______________________________________________________________________
 
 ### `adcam_unpack_op.cu` — GPU kernels
 
-Contains all CUDA device code. Each kernel is exposed via a C-callable launcher
-declared in the header and called from `adcam_unpack_op.cpp`:
+Contains all CUDA device code. Each kernel is exposed via a C-callable launcher declared
+in the header and called from `adcam_unpack_op.cpp`:
 
-| Kernel | Launcher | Purpose |
-|---|---|---|
+| Kernel                  | Launcher                                   | Purpose                                                                                                                                                                           |
+| ----------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `shift_and_cast_kernel` | `shift_and_cast_kernel(..., cudaStream_t)` | Converts `uint16_t` → `uint8_t` by right-shifting 8 bits (CSI buffer arrives as 16-bit words); launcher is a C++ overload of the same name with an extra `cudaStream_t` parameter |
-| `unpack_kernel` | `unpack_kernel_launch()` | Splits 5 B/px packed stream → separate `depth[]`, `conf[]`, `ab[]` `uint16_t` arrays — one thread per pixel |
-| `jet_kernel` | `jet_kernel_launch()` | Maps `depth[]` → RGB using a 256-entry Jet LUT stored in CUDA `__constant__` memory; depth normalized to 0–4000 mm |
-| `grayscale_kernel` | `grayscale_kernel_launch(..., max_val)` | Maps `ab[]` / `conf[]` → grayscale RGB; `max_val=4096` for AB (12-bit), `max_val=255` for Confidence (8-bit) |
+| `unpack_kernel`         | `unpack_kernel_launch()`                   | Splits 5 B/px packed stream → separate `depth[]`, `conf[]`, `ab[]` `uint16_t` arrays — one thread per pixel                                                                       |
+| `jet_kernel`            | `jet_kernel_launch()`                      | Maps `depth[]` → RGB using a 256-entry Jet LUT stored in CUDA `__constant__` memory; depth normalized to 0–4000 mm                                                                |
+| `grayscale_kernel`      | `grayscale_kernel_launch(..., max_val)`    | Maps `ab[]` / `conf[]` → grayscale RGB; `max_val=4096` for AB (12-bit), `max_val=255` for Confidence (8-bit)                                                                      |
 
-The Jet LUT is placed in `__constant__` memory for cached broadcast reads across all threads.
+The Jet LUT is placed in `__constant__` memory for cached broadcast reads across all
+threads.
 
 #### Kernel purpose details
 
@@ -604,12 +612,12 @@ read garbage.
 The same two-subframe layout applies to all capture modes — MP, QMP, VGA, and QVGA.
 `N = width × height` pixels; only the frame dimensions differ per mode:
 
-| Imager | Mode | Pixel dims (W × H) | N pixels | Total frame bytes (5 × N) |
-|--------|------|-------------------|----------|--------------------------|
-| ADSD3100 | 0, 1 (MP) | 1024 × 1024 | 1,048,576 | 5,242,880 |
-| ADSD3100 | 2, 3, 5, 6 (QMP) | 512 × 512 | 262,144 | 1,310,720 |
-| ADTF3066 | 0, 1, 7 (VGA) | 512 × 640 | 327,680 | 1,638,400 |
-| ADTF3066 | 3, 6, 8 (QVGA) | 256 × 320 | 81,920 | 409,600 |
+| Imager   | Mode             | Pixel dims (W × H) | N pixels  | Total frame bytes (5 × N) |
+| -------- | ---------------- | ------------------ | --------- | ------------------------- |
+| ADSD3100 | 0, 1 (MP)        | 1024 × 1024        | 1,048,576 | 5,242,880                 |
+| ADSD3100 | 2, 3, 5, 6 (QMP) | 512 × 512          | 262,144   | 1,310,720                 |
+| ADTF3066 | 0, 1, 7 (VGA)    | 512 × 640          | 327,680   | 1,638,400                 |
+| ADTF3066 | 3, 6, 8 (QVGA)   | 256 × 320          | 81,920    | 409,600                   |
 
 One CUDA thread per pixel reads from two subframe regions:
 
@@ -625,24 +633,25 @@ ab[idx]    = raw[sf2_base] | (raw[sf2_base + 1] << 8)   // uint16 LE
 ```
 
 Inputs/outputs (all device memory):
-- `raw`   — `uint8_t*`  packed input (5 bytes × width × height)
-- `depth` — `uint16_t*` unpacked depth plane
-- `conf`  — `uint16_t*` unpacked confidence plane
-- `ab`    — `uint16_t*` unpacked active brightness plane
 
-Output: three separate `uint16_t` device arrays (`depth[]`, `conf[]`, `ab[]`),
-each W×H — one value per pixel.
+- `raw` — `uint8_t*` packed input (5 bytes × width × height)
+- `depth` — `uint16_t*` unpacked depth plane
+- `conf` — `uint16_t*` unpacked confidence plane
+- `ab` — `uint16_t*` unpacked active brightness plane
+
+Output: three separate `uint16_t` device arrays (`depth[]`, `conf[]`, `ab[]`), each W×H
+— one value per pixel.
 
 > **Firmware v8.1.0+ — Two-subframe frame layout (all modes)**
 >
-> Starting with firmware v8.1.0 the frame is split into **two subframes** instead
-> of a single 5-byte/pixel interleaved stream. The structure is identical for all
-> imager modes; only the pixel count N = W × H differs:
+> Starting with firmware v8.1.0 the frame is split into **two subframes** instead of a
+> single 5-byte/pixel interleaved stream. The structure is identical for all imager
+> modes; only the pixel count N = W × H differs:
 >
-> | Subframe | Content | Bytes/pixel | Total bytes |
-> |----------|---------|-------------|-------------|
-> | 1 | Depth (16-bit) + Confidence (8-bit) interleaved per pixel | 3 | 3 × N |
-> | 2 | Active Brightness (16-bit) for all pixels | 2 | 2 × N |
+> | Subframe | Content                                                   | Bytes/pixel | Total bytes |
+> | -------- | --------------------------------------------------------- | ----------- | ----------- |
+> | 1        | Depth (16-bit) + Confidence (8-bit) interleaved per pixel | 3           | 3 × N       |
+> | 2        | Active Brightness (16-bit) for all pixels                 | 2           | 2 × N       |
 >
 > Full stream layout:
 >
@@ -659,58 +668,59 @@ each W×H — one value per pixel.
 > ```
 >
 > Per-pixel extraction (v8.1.0+, all modes):
+>
 > ```
 > depth[i] = subframe1[i*3 + 0] | (subframe1[i*3 + 1] << 8)  → uint16
 > conf[i]  = subframe1[i*3 + 2]                               → uint8
 > ab[i]    = subframe2[i*2 + 0] | (subframe2[i*2 + 1] << 8)  → uint16
 > ```
 >
-> The total frame size is always 5 × N bytes.
-> The 5 bytes per pixel are fully consumed — there are **no padding or don't-care bytes**:
+> The total frame size is always 5 × N bytes. The 5 bytes per pixel are fully consumed —
+> there are **no padding or don't-care bytes**:
 >
-> | Subframe | Bytes/pixel | Role | Running total |
-> |----------|-------------|------|---------------|
-> | SF1 | 3 | Depth (2 B) + Confidence (1 B) | 3 × N |
-> | SF2 | 2 | Active Brightness (2 B) | 2 × N |
-> | **Total** | **5** | | **5 × N** |
+> | Subframe  | Bytes/pixel | Role                           | Running total |
+> | --------- | ----------- | ------------------------------ | ------------- |
+> | SF1       | 3           | Depth (2 B) + Confidence (1 B) | 3 × N         |
+> | SF2       | 2           | Active Brightness (2 B)        | 2 × N         |
+> | **Total** | **5**       |                                | **5 × N**     |
 >
 > `3N + 2N = 5N` — the same total as the previous single-interleaved format.
 > `unpack_kernel` handles this two-subframe layout for all modes (MP, QMP, VGA, QVGA).
 
 **`jet_kernel`** — Depth → false-color RGB (Jet colormap)
 
-Maps each `uint16_t` depth value to an RGB triplet using a precomputed 256-entry
-Jet LUT stored in CUDA `__constant__` memory. Normalization: depth is divided by
-4000 mm and scaled to 0–255. Near = blue, mid = green/yellow, far = red. Output:
-`uint8_t` RGB image for the **Depth** panel in Holoviz.
+Maps each `uint16_t` depth value to an RGB triplet using a precomputed 256-entry Jet LUT
+stored in CUDA `__constant__` memory. Normalization: depth is divided by 4000 mm and
+scaled to 0–255. Near = blue, mid = green/yellow, far = red. Output: `uint8_t` RGB image
+for the **Depth** panel in Holoviz.
 
 **`grayscale_kernel`** — AB / Confidence → grayscale RGB
 
-Maps each `uint16_t` value to a grayscale intensity using a `max_val` parameter,
-then writes the same value to all three RGB channels. Used twice per frame with
-different normalization ranges:
+Maps each `uint16_t` value to a grayscale intensity using a `max_val` parameter, then
+writes the same value to all three RGB channels. Used twice per frame with different
+normalization ranges:
 
-| Channel | `max_val` | Range | Reason |
-|---------|-----------|-------|---------|
-| Active Brightness | `4096.0` | 12-bit | AB is a 12-bit ADC value |
-| Confidence | `255.0` | 8-bit | Conf is a direct uint8 value (v8.1.0+ subframe 1) |
+| Channel           | `max_val` | Range  | Reason                                            |
+| ----------------- | --------- | ------ | ------------------------------------------------- |
+| Active Brightness | `4096.0`  | 12-bit | AB is a 12-bit ADC value                          |
+| Confidence        | `255.0`   | 8-bit  | Conf is a direct uint8 value (v8.1.0+ subframe 1) |
 
----
+______________________________________________________________________
 
 ### `adcam_unpack_op.cpp` — Holoscan operator logic
 
 Contains the Holoscan lifecycle methods and GXF memory management:
 
-| Method | What it does |
-|---|---|
-| `setup()` | Registers input/output ports and parameters with the Holoscan framework |
-| `start()` | Computes `frame_size_ = width × height` once at pipeline startup |
-| `compute()` | Called every frame — full pipeline orchestration (see below) |
+| Method      | What it does                                                            |
+| ----------- | ----------------------------------------------------------------------- |
+| `setup()`   | Registers input/output ports and parameters with the Holoscan framework |
+| `start()`   | Computes `frame_size_ = width × height` once at pipeline startup        |
+| `compute()` | Called every frame — full pipeline orchestration (see below)            |
 
 **How `compute()` is invoked — framework dispatch**
 
-`compute()` is **never called directly** from `adcam_player.cpp`. The Holoscan
-framework calls it automatically on every incoming frame:
+`compute()` is **never called directly** from `adcam_player.cpp`. The Holoscan framework
+calls it automatically on every incoming frame:
 
 ```
 adcam_player.cpp — HoloscanApplication::compose()
@@ -729,8 +739,8 @@ app.run()
            └─ ADTFUnpackOp::compute(op_input, op_output, context)
 ```
 
-`adcam_player.cpp` only declares *what* to run and *how operators connect* —
-the GXF scheduler handles *when* `compute()` is called.
+`adcam_player.cpp` only declares *what* to run and *how operators connect* — the GXF
+scheduler handles *when* `compute()` is called.
 
 **`compute()` step-by-step per frame:**
 
@@ -748,19 +758,18 @@ the GXF scheduler handles *when* `compute()` is called.
 11. Emit output GXF entity to HolovizOp
 ```
 
----
-
+______________________________________________________________________
 
 ### Parameters (as configured in `adcam_player.cpp`)
 
-| Parameter | Value | Description |
-|---|---|---|
-| `num_planes` | `3` | Depth + Active Brightness + Confidence |
-| `width` | `get_pixel_width()` | Frame width in pixels (set from mode table after imager detection) |
-| `height` | `get_pixel_height()` | Frame height in pixels (set from mode table after imager detection) |
-| `allocator` | `BlockMemoryPool` (8 blocks, device) | GPU memory pool for output tensors |
-| `in_tensor_name` | `""` | Unnamed input tensor from `CsiToBayerOp` |
-| `out_tensor_name` | `"output"` | Output port name |
+| Parameter         | Value                                | Description                                                         |
+| ----------------- | ------------------------------------ | ------------------------------------------------------------------- |
+| `num_planes`      | `3`                                  | Depth + Active Brightness + Confidence                              |
+| `width`           | `get_pixel_width()`                  | Frame width in pixels (set from mode table after imager detection)  |
+| `height`          | `get_pixel_height()`                 | Frame height in pixels (set from mode table after imager detection) |
+| `allocator`       | `BlockMemoryPool` (8 blocks, device) | GPU memory pool for output tensors                                  |
+| `in_tensor_name`  | `""`                                 | Unnamed input tensor from `CsiToBayerOp`                            |
+| `out_tensor_name` | `"output"`                           | Output port name                                                    |
 
 ### Full data flow — Pre-unpack to Display
 
@@ -810,67 +819,70 @@ cpp/adcam_unpack_op.hpp    ← shared: kernel launcher prototypes + operator cla
               GPU → display window "ADI ToF Player"
 ```
 
-> All GPU work (unpack + colorization + rendering) stays on the same CUDA stream —
-> no host–device synchronization between steps.
+> All GPU work (unpack + colorization + rendering) stays on the same CUDA stream — no
+> host–device synchronization between steps.
 
 ### Functions called per step — `ADTFUnpackOp::compute()` (steps 1–11)
 
-All steps run inside `ADTFUnpackOp::compute()` in `adcam_unpack_op.cpp`. Steps 1–6 are CPU-side setup; steps 7–10 launch CUDA kernels; step 11 emits the result downstream.
+All steps run inside `ADTFUnpackOp::compute()` in `adcam_unpack_op.cpp`. Steps 1–6 are
+CPU-side setup; steps 7–10 launch CUDA kernels; step 11 emits the result downstream.
 
-| Step | Description | Functions called |
-|------|-------------|-----------------|
-| **1** | Receive GXF entity | `op_input.receive<holoscan::gxf::Entity>("input")` |
-| **2** | Extract CUDA stream | `cuda_stream_handler_.from_message()`, `cuda_stream_handler_.get_cuda_stream()` |
-| **3** | Get input tensor + validate storage | `entity.get<nvidia::gxf::Tensor>(...)`, `input_tensor->storage_type()`, `input_tensor->size()` |
-| **4** | Get allocator handle | `nvidia::gxf::Handle<nvidia::gxf::Allocator>::Create(...)` |
-| **5** | Allocate output GXF tensors (`Depth`, `ActiveBrightness`, `Conf`) | `nvidia::gxf::Entity::New()`, `out_message.add<nvidia::gxf::Tensor>(...)`, `tensor->reshape<uint8_t>(...)`, `tensor->data<uint8_t>()` |
-| **6** | Allocate scratch `uint16` tensors (`depthraw`, `confraw`, `abraw`) | `scratch_entity.add<nvidia::gxf::Tensor>(...)`, `tensor->reshape<uint16_t>(...)`, `tensor->data<uint16_t>()` |
-| **7** | uint16 → uint8 shift (`>>8`) | `shift_and_cast_kernel(raw_u16, raw, size * 5, stream)` |
-| **8** | Unpack 5 B/px → depth/conf/ab uint16 planes | `unpack_kernel_launch(raw, depth, conf, ab, width, height, stream)` |
-| **9** | depth uint16 → Jet RGB colormap | `jet_kernel_launch(depth, depth_rgb_ptr, size, stream)` |
-| **10** | ab/conf uint16 → grayscale RGB | `grayscale_kernel_launch(ab, ab_rgb_ptr, size, stream)`, `grayscale_kernel_launch(conf, conf_rgb_ptr, size, stream)` |
-| **11** | Emit output entity with 3 tensors | `op_output.emit(out_message)` |
+| Step   | Description                                                        | Functions called                                                                                                                      |
+| ------ | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| **1**  | Receive GXF entity                                                 | `op_input.receive<holoscan::gxf::Entity>("input")`                                                                                    |
+| **2**  | Extract CUDA stream                                                | `cuda_stream_handler_.from_message()`, `cuda_stream_handler_.get_cuda_stream()`                                                       |
+| **3**  | Get input tensor + validate storage                                | `entity.get<nvidia::gxf::Tensor>(...)`, `input_tensor->storage_type()`, `input_tensor->size()`                                        |
+| **4**  | Get allocator handle                                               | `nvidia::gxf::Handle<nvidia::gxf::Allocator>::Create(...)`                                                                            |
+| **5**  | Allocate output GXF tensors (`Depth`, `ActiveBrightness`, `Conf`)  | `nvidia::gxf::Entity::New()`, `out_message.add<nvidia::gxf::Tensor>(...)`, `tensor->reshape<uint8_t>(...)`, `tensor->data<uint8_t>()` |
+| **6**  | Allocate scratch `uint16` tensors (`depthraw`, `confraw`, `abraw`) | `scratch_entity.add<nvidia::gxf::Tensor>(...)`, `tensor->reshape<uint16_t>(...)`, `tensor->data<uint16_t>()`                          |
+| **7**  | uint16 → uint8 shift (`>>8`)                                       | `shift_and_cast_kernel(raw_u16, raw, size * 5, stream)`                                                                               |
+| **8**  | Unpack 5 B/px → depth/conf/ab uint16 planes                        | `unpack_kernel_launch(raw, depth, conf, ab, width, height, stream)`                                                                   |
+| **9**  | depth uint16 → Jet RGB colormap                                    | `jet_kernel_launch(depth, depth_rgb_ptr, size, stream)`                                                                               |
+| **10** | ab/conf uint16 → grayscale RGB                                     | `grayscale_kernel_launch(ab, ab_rgb_ptr, size, stream)`, `grayscale_kernel_launch(conf, conf_rgb_ptr, size, stream)`                  |
+| **11** | Emit output entity with 3 tensors                                  | `op_output.emit(out_message)`                                                                                                         |
 
----
+______________________________________________________________________
 
 ## Firmware Update
 
 ### Steps to use the manifest YAML
 
-1. Obtain the firmware binary (`.bin`) for the ADSD3500 sensor.
-   The default manifest (`adi_manifest.yaml`) references `ADCAM_Fw_Dual_Update_X.Y.Z.bin`
-   and will download it automatically from the ADI download server.
-2. Compute the file size and MD5 checksum (if using a custom binary):
+1. Obtain the firmware binary (`.bin`) for the ADSD3500 sensor. The default manifest
+   (`adi_manifest.yaml`) references `ADCAM_Fw_Dual_Update_X.Y.Z.bin` and will download
+   it automatically from the ADI download server.
+1. Compute the file size and MD5 checksum (if using a custom binary):
    ```bash
    wc -c ADCAM_Fw_Dual_Update_X.Y.Z.bin   # file size in bytes
    md5sum ADCAM_Fw_Dual_Update_X.Y.Z.bin  # MD5 hash
    ```
-3. Fill in the values in the manifest YAML (`adi_manifest.yaml`) already provided:
-   - `filename` — absolute or relative path to the firmware binary (or `url:` for remote fetch)
+1. Fill in the values in the manifest YAML (`adi_manifest.yaml`) already provided:
+   - `filename` — absolute or relative path to the firmware binary (or `url:` for remote
+     fetch)
    - `size` — byte count from step 2
    - `md5` — MD5 hash from step 2
-4. Run the updater:
+1. Run the updater:
    ```bash
    ./adcam_player --firmwareUpdate adi_manifest.yaml
    ```
 
 The updater will:
-1. Parse and validate the manifest
-2. Prompt for EULA acceptance (unless `--accept-eula` is set in `Programmer::Args`)
-3. Download or read the firmware binary and verify size + MD5
-4. Flash master sensor, verify version
-5. Flash slave sensor, verify version
-6. Exit — power cycle the device before resuming capture
 
----
+1. Parse and validate the manifest
+1. Prompt for EULA acceptance (unless `--accept-eula` is set in `Programmer::Args`)
+1. Download or read the firmware binary and verify size + MD5
+1. Flash master sensor, verify version
+1. Flash slave sensor, verify version
+1. Exit — power cycle the device before resuming capture
+
+______________________________________________________________________
 
 ## Troubleshooting
 
-| Symptom | Likely Cause | Action |
-|---------|-------------|--------|
-| `ADTF3175 NOT Found` | Sensor not initialized or powered off | Auto-reset is attempted once; if it persists, check sensor power and HSB connection |
-| No frames received | MIPI not streaming | Verify `--captureMode` and `--resetPin` values |
-| `Firmware flash failed` | Invalid binary or I2C error | Check manifest MD5/size and sensor power |
-| Black/frozen Holoviz window | CUDA or IBV issue | Check `--ibv-name` and CUDA device availability |
-| `Imager Type: Unknown (raw=...)` | `get_imager_type_and_ccb_version()` returned unexpected value | Check byte order: `resp[0]`=Imager Type, `resp[1]`=CCB Version |
-| Wrong pixel dimensions | Imager not yet detected before `compose()` | Ensure `get_imager_type_and_ccb_version()` is called before `application->run()` |
+| Symptom                          | Likely Cause                                                  | Action                                                                              |
+| -------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `ADTF3175 NOT Found`             | Sensor not initialized or powered off                         | Auto-reset is attempted once; if it persists, check sensor power and HSB connection |
+| No frames received               | MIPI not streaming                                            | Verify `--captureMode` and `--resetPin` values                                      |
+| `Firmware flash failed`          | Invalid binary or I2C error                                   | Check manifest MD5/size and sensor power                                            |
+| Black/frozen Holoviz window      | CUDA or IBV issue                                             | Check `--ibv-name` and CUDA device availability                                     |
+| `Imager Type: Unknown (raw=...)` | `get_imager_type_and_ccb_version()` returned unexpected value | Check byte order: `resp[0]`=Imager Type, `resp[1]`=CCB Version                      |
+| Wrong pixel dimensions           | Imager not yet detected before `compose()`                    | Ensure `get_imager_type_and_ccb_version()` is called before `application->run()`    |
