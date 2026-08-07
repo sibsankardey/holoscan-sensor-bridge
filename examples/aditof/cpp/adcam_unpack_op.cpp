@@ -27,6 +27,7 @@
 
 #include <cuda_runtime.h>
 #include <fstream>
+#include <vector>
 
 //------------------------------------------------------------------------------
 // CUDA error checking helper
@@ -104,6 +105,27 @@ void ADTFUnpackOp::setup(holoscan::OperatorSpec& spec)
     spec.param(height_, "height");
     spec.param(num_planes_, "num_planes");
 
+    spec.param(z_table_, "z_table", "Radial to Z table",
+        "Per-pixel scale converting radial depth to Cartesian Z; "
+        "empty reports the radial depth as received from the ADSD3500",
+        std::vector<float>());
+
+    spec.param(ab_log_scale_, "ab_log_scale", "Log scale active brightness",
+        "Display active brightness on a logarithmic scale instead of linear",
+        true);
+
+    spec.param(depth_min_mm_, "depth_min_mm", "Depth colormap minimum",
+        "Depth in mm at the bottom of the Jet colormap; closer pixels clamp "
+        "to it",
+        kDepthMinMmDefault);
+
+    spec.param(depth_max_mm_, "depth_max_mm", "Depth colormap maximum",
+        "Depth in mm at the top of the Jet colormap; farther pixels and "
+        "invalid pixels are drawn black",
+        kDepthMaxMmDefault);
+
+    spec.param(fps_interval_sec_, "profile_avg_fps", "Profiling of FPS over seconds", "Average FPS processed", 0);
+
     spec.param(allocator_, "allocator", "Allocator",
         "Device allocator for output tensors");
 
@@ -129,12 +151,64 @@ void ADTFUnpackOp::start()
 {
     frame_size_ = width_.get() * height_.get();
     pixel_size_ = num_planes_ == 2 ? 4 : 5;
+
+    // For profiling
+    fps_window_start_ = Clock::now();
+    frames_received_ = 0;
+    frames_processed_ = 0;
+    total_processing_us_ = 0;
+
+    const std::vector<float>& z_table = z_table_.get();
+    if (!z_table.empty()) {
+        if (static_cast<int>(z_table.size()) != frame_size_) {
+            throw std::runtime_error(fmt::format(
+                "z_table has {} entries, expected {} ({}x{})",
+                z_table.size(), frame_size_, width_.get(), height_.get()));
+        }
+        const size_t bytes = z_table.size() * sizeof(float);
+        CudaCheckRuntime(cudaMalloc(&z_table_device_, bytes));
+        CudaCheckRuntime(cudaMemcpy(z_table_device_, z_table.data(), bytes,
+            cudaMemcpyHostToDevice));
+        HOLOSCAN_LOG_INFO("ADTFUnpackOp: reporting Cartesian Z depth");
+    } else {
+        HOLOSCAN_LOG_INFO("ADTFUnpackOp: reporting radial depth");
+    }
+
+    const float depth_min_mm = depth_min_mm_.get();
+    const float depth_max_mm = depth_max_mm_.get();
+    const float tick_step_mm = depth_legend_tick_step_mm(depth_min_mm, depth_max_mm);
+    const float first_tick_mm = depth_legend_first_tick_mm(depth_min_mm, depth_max_mm);
+    const int ticks = depth_legend_ticks(depth_min_mm, depth_max_mm);
+
+    std::vector<float> legend_coords(ticks * 3);
+    for (int i = 0; i < ticks; ++i) {
+        const float value_mm = first_tick_mm + i * tick_step_mm;
+        legend_coords[i * 3 + 0] = kDepthLegendTextX;
+        legend_coords[i * 3 + 1] = kDepthLegendBarY
+            + kDepthLegendBarHeight
+                * (1.0f - (value_mm - depth_min_mm) / (depth_max_mm - depth_min_mm))
+            - kDepthLegendTextSize * 0.5f;
+        legend_coords[i * 3 + 2] = kDepthLegendTextSize;
+    }
+    legend_coords_size_ = legend_coords.size() * sizeof(float);
+    CudaCheckRuntime(cudaMalloc(&legend_coords_d_, legend_coords_size_));
+    CudaCheckRuntime(cudaMemcpy(legend_coords_d_, legend_coords.data(), legend_coords_size_,
+        cudaMemcpyHostToDevice));
+
     HOLOSCAN_LOG_DEBUG("ADTFUnpackOp start complete");
 }
 
 //------------------------------------------------------------------------------
 void ADTFUnpackOp::stop()
 {
+    if (z_table_device_) {
+        cudaFree(z_table_device_);
+        z_table_device_ = nullptr;
+    }
+    if (legend_coords_d_) {
+        cudaFree(legend_coords_d_);
+        legend_coords_d_ = nullptr;
+    }
     HOLOSCAN_LOG_DEBUG("ADTFUnpackOp stop complete");
 }
 
@@ -146,6 +220,9 @@ void ADTFUnpackOp::compute(holoscan::InputContext& op_input,
     holoscan::ExecutionContext& context)
 {
 
+    auto frame_start = Clock::now();
+
+    ++frames_received_;
     //--------------------------------------------------------------------------
     // 1. Receive input entity
     //--------------------------------------------------------------------------
@@ -228,6 +305,11 @@ void ADTFUnpackOp::compute(holoscan::InputContext& op_input,
     ab_tensor->reshape<uint8_t>({ height, width, 3 },
         nvidia::gxf::MemoryStorageType::kDevice, allocator.value());
 
+    auto legend_tensor = out_message.add<nvidia::gxf::Tensor>("DepthLegend").value();
+    legend_tensor->reshape<float>(
+        { depth_legend_ticks(depth_min_mm_.get(), depth_max_mm_.get()), 3 },
+        nvidia::gxf::MemoryStorageType::kDevice, allocator.value());
+
     uint8_t* depth_rgb_ptr = depth_tensor->data<uint8_t>().value();
     uint8_t* ab_rgb_ptr = ab_tensor->data<uint8_t>().value();
 
@@ -299,7 +381,20 @@ void ADTFUnpackOp::compute(holoscan::InputContext& op_input,
     //--------------------------------------------------------------------------
     // 11. Convert to RGB (Jet + grayscale)
     //--------------------------------------------------------------------------
-    jet_kernel_launch(depth, depth_rgb_ptr, size, stream);
+    const uint16_t* depth_out = depth;
+    if (z_table_device_) {
+        auto depthz_tensor = scratch_entity.add<nvidia::gxf::Tensor>("depthz").value();
+        depthz_tensor->reshape<uint16_t>({ height, width },
+            nvidia::gxf::MemoryStorageType::kDevice, allocator.value());
+        uint16_t* depth_z = depthz_tensor->data<uint16_t>().value();
+        radial_to_z_kernel_launch(depth, z_table_device_, depth_z, size, stream);
+        depth_out = depth_z;
+    }
+
+    jet_kernel_launch(depth_out, depth_rgb_ptr, size, stream,
+        depth_min_mm_.get(), depth_max_mm_.get());
+    depth_legend_kernel_launch(depth_rgb_ptr, width, height, stream,
+        depth_min_mm_.get(), depth_max_mm_.get());
     {
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
@@ -308,9 +403,9 @@ void ADTFUnpackOp::compute(holoscan::InputContext& op_input,
         }
     }
     grayscale_kernel_launch(conf, conf_rgb_ptr, size, stream,
-        255.0f); // conf: 8-bit range 0-255
+        255.0f, false); // conf: 8-bit range 0-255
     grayscale_kernel_launch(ab, ab_rgb_ptr, size, stream,
-        4096.0f); // AB:   12-bit range 0-4096
+        4096.0f, ab_log_scale_.get()); // AB: 12-bit range 0-4096
     {
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
@@ -321,9 +416,70 @@ void ADTFUnpackOp::compute(holoscan::InputContext& op_input,
     }
 
     //--------------------------------------------------------------------------
-    // 12. Emit output entity
+    // 12. Position the legend tick labels
+    //--------------------------------------------------------------------------
+    CudaCheckRuntime(cudaMemcpy(legend_tensor->data<float>().value(),
+        legend_coords_d_, legend_coords_size_,
+        cudaMemcpyDeviceToDevice));
+
+    //--------------------------------------------------------------------------
+    // 13. Emit output entity
     //--------------------------------------------------------------------------
     op_output.emit(out_message);
+
+    //--------------------------------------------------------------------------
+    // 14. Update profiling info if needed/enabled
+    //--------------------------------------------------------------------------
+    if (fps_interval_sec_) {
+        ++frames_processed_;
+
+        auto frame_end = Clock::now();
+
+        total_processing_us_ += std::chrono::duration_cast<std::chrono::microseconds>(
+            frame_end - frame_start)
+                                    .count();
+
+        const double elapsed_sec = std::chrono::duration<double>(
+            frame_end - fps_window_start_)
+                                       .count();
+
+        if (elapsed_sec >= fps_interval_sec_) {
+
+            uint64_t rx_count = frames_received_.load();
+
+            uint64_t processed_count = frames_processed_.load();
+
+            double received_fps = static_cast<double>(rx_count) / elapsed_sec;
+
+            double processed_fps = static_cast<double>(processed_count) / elapsed_sec;
+
+            double avg_processing_us = processed_count ? static_cast<double>(total_processing_us_) / processed_count : 0.0;
+
+            HOLOSCAN_LOG_INFO(
+                "\n"
+                "=====================================================\n"
+                " ADCAM TOF FPS REPORT\n"
+                "=====================================================\n"
+                " Window                 : {} sec\n"
+                " Frames Received        : {} \n"
+                " Frames Processed       : {} \n"
+                " Received FPS           : {} \n"
+                " Processed FPS          : {} \n"
+                " Avg Processing Time    : {} us\n"
+                "=====================================================",
+                elapsed_sec,
+                rx_count,
+                processed_count,
+                received_fps,
+                processed_fps,
+                avg_processing_us);
+
+            frames_received_ = 0;
+            frames_processed_ = 0;
+            total_processing_us_ = 0;
+            fps_window_start_ = frame_end;
+        }
+    }
 }
 
 } // namespace hololink::operators

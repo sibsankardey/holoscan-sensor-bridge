@@ -23,6 +23,7 @@ find_package(OpenSSL REQUIRED)
 add_executable(adcam_player
   adcam_player.cpp
   adcam_lib.cpp
+  adcam_calibration.cpp
   adcam_unpack_op.cpp
   adcam_unpack_op.cu
   programmer.cpp
