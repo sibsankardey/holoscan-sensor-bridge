@@ -237,74 +237,74 @@ python3 examples/aditof/python/adcam_player.py [options]
 
 ```bash
 # C++    — full power-on reset, then capture
-./build/examples/aditof/cpp/adcam_player --resetAdcam 1 --capture 1
+./build/examples/aditof/cpp/adcam_player --resetAdcam 1 --resetPin <pin number/default 0> --capture 1 --maxMipi <Lane speed in Mbps/default 2.5Gbps> --metadata <default 0 or 128>
 
 # Python — full power-on reset, then capture
-python3 examples/aditof/python/adcam_player.py --resetAdcam 1 --capture 1
+python3 examples/aditof/python/adcam_player.py --resetAdcam 1 --resetPin <pin number/default 0> --capture 1 --maxMipi <Lane speed in Mbps/default 2500 or 2.5Gbps> --metadata <default 0 or 128>
 ```
 
 #### Capture only (device already running)
 
 ```bash
 # C++
-./build/examples/aditof/cpp/adcam_player --capture 1
+./build/examples/aditof/cpp/adcam_player --capture 1 --maxMipi <Lane speed in Mbps/default 2.5Gbps> --metadata <default 0 or 128>
 
 # Python
-python3 examples/aditof/python/adcam_player.py --capture 1
+python3 examples/aditof/python/adcam_player.py --capture 1 --maxMipi <Lane speed in Mbps/default 2.5Gbps> --metadata <default 0 or 128>
 ```
 
 #### ADSD3100 — QMP modes (512×512, 1 Gbps MIPI)
 
 ```bash
 # C++    — mode 3: QMP, 512×512, ab_averaging on
-./build/examples/aditof/cpp/adcam_player --captureMode 3 --capture 1
+./build/examples/aditof/cpp/adcam_player --captureMode 3 --capture 1 --maxMipi <Lane speed in Mbps/default 2.5Gbps> --metadata <default 0 or 128>
 
 # Python — mode 3
-python3 examples/aditof/python/adcam_player.py --captureMode 3 --capture 1
+python3 examples/aditof/python/adcam_player.py --captureMode 3 --capture 1 --maxMipi <Lane speed in Mbps/default 2.5Gbps> --metadata <default 0 or 128>
 
 # C++    — mode 6 (default): QMP, 512×512, ab_averaging on
-./build/examples/aditof/cpp/adcam_player --captureMode 6 --capture 1
+./build/examples/aditof/cpp/adcam_player --captureMode 6 --capture 1 --maxMipi <Lane speed in Mbps/default 2.5Gbps> --metadata <default 0 or 128>
 
 # Python — mode 6 (default)
-python3 examples/aditof/python/adcam_player.py --captureMode 6 --capture 1
+python3 examples/aditof/python/adcam_player.py --captureMode 6 --capture 1 --maxMipi <Lane speed in Mbps/default 2.5Gbps> --metadata <default 0 or 128>
 ```
 
 #### ADTF3066 — VGA modes (512×640, 1 Gbps MIPI)
 
 ```bash
 # C++    — mode 0: VGA, 512×640
-./build/examples/aditof/cpp/adcam_player --captureMode 0 --capture 1
+./build/examples/aditof/cpp/adcam_player --captureMode 0 --capture 1 --maxMipi <Lane speed in Mbps/default 2.5Gbps> --metadata <default 0 or 128>
 
 # Python — mode 0
-python3 examples/aditof/python/adcam_player.py --captureMode 0 --capture 1
+python3 examples/aditof/python/adcam_player.py --captureMode 0 --capture 1 --maxMipi <Lane speed in Mbps/default 2.5Gbps> --metadata <default 0 or 128>
 
 # C++    — mode 7: VGA, 512×640
-./build/examples/aditof/cpp/adcam_player --captureMode 7 --capture 1
+./build/examples/aditof/cpp/adcam_player --captureMode 7 --capture 1 --maxMipi <Lane speed in Mbps/default 2.5Gbps> --metadata <default 0 or 128>
 
 # Python — mode 7
-python3 examples/aditof/python/adcam_player.py --captureMode 7 --capture 1
+python3 examples/aditof/python/adcam_player.py --captureMode 7 --capture 1 --maxMipi <Lane speed in Mbps/default 2.5Gbps> --metadata <default 0 or 128>
 ```
 
 #### ADTF3066 — QVGA modes (256×320, 1 Gbps MIPI)
 
 ```bash
 # C++    — mode 3: QVGA, 256×320
-./build/examples/aditof/cpp/adcam_player --captureMode 3 --capture 1
+./build/examples/aditof/cpp/adcam_player --captureMode 3 --capture 1 --maxMipi <Lane speed in Mbps/default 2.5Gbps> --metadata <default 0 or 128>
 
 # Python — mode 3
-python3 examples/aditof/python/adcam_player.py --captureMode 3 --capture 1
+python3 examples/aditof/python/adcam_player.py --captureMode 3 --capture 1 --maxMipi <Lane speed in Mbps/default 2.5Gbps> --metadata <default 0 or 128>
 
 # C++    — mode 6 (default): QVGA, 256×320
-./build/examples/aditof/cpp/adcam_player --captureMode 6 --capture 1
+./build/examples/aditof/cpp/adcam_player --captureMode 6 --capture 1 --maxMipi <Lane speed in Mbps/default 2.5Gbps> --metadata <default 0 or 128>
 
 # Python — mode 6 (default)
-python3 examples/aditof/python/adcam_player.py --captureMode 6 --capture 1
+python3 examples/aditof/python/adcam_player.py --captureMode 6 --capture 1 --maxMipi <Lane speed in Mbps/default 2.5Gbps> --metadata <default 0 or 128>
 
 # C++    — mode 8: QVGA, 256×320
-./build/examples/aditof/cpp/adcam_player --captureMode 8 --capture 1
+./build/examples/aditof/cpp/adcam_player --captureMode 8 --capture 1 --maxMipi <Lane speed in Mbps/default 2.5Gbps> --metadata <default 0 or 128>
 
 # Python — mode 8
-python3 examples/aditof/python/adcam_player.py --captureMode 8 --capture 1
+python3 examples/aditof/python/adcam_player.py --captureMode 8 --capture 1 --maxMipi <Lane speed in Mbps/default 2.5Gbps> --metadata <default 0 or 128>
 ```
 
 #### Firmware update
@@ -333,6 +333,8 @@ python3 examples/aditof/python/adcam_player.py --firmwareUpdate adi_manifest.yam
 | `--frame-limit <n>` | int | `300` | Stop after N frames (`0` = unlimited) |
 | `--ibv-name <dev>` | string | auto-detected | InfiniBand/network device name |
 | `--ibv-port <n>` | int | `1` | InfiniBand port number |
+| `--metadata` | integer | `0` | Metadata size removed from MIPI receive data, validated from `0` through `256`. |
+| `--maxMipi` | integer, Mbps/lane | `2500` | `1000`, `1500`, `2000`, or `2500`. |
 | `--log-level <level>` | string | `info` | Log verbosity: `trace` `debug` `info` `warn` `error` |
 | `-h`, `--help` | flag | — | Print usage |
 
@@ -343,6 +345,15 @@ python3 examples/aditof/python/adcam_player.py --firmwareUpdate adi_manifest.yam
 | `--hololink <ip>` | string | `192.168.0.2` | Override HSB board IP address |
 | `--headless` | flag | off | Run without display window (no HolovizOp GUI) |
 | `--fullscreen` | flag | off | Run Holoviz in fullscreen mode |
+| `--capture` | integer | `0` | Set to `1` to start the capture application. |
+| `--numPlanes` | integer | `3` | `2` = Depth + Active Brightness; `3` = Depth + Active Brightness + Confidence. |
+| `--captureFps` | integer | `30` | Requested ToF frame rate, validated from `1` through `70`. Some rates may not work with every mode. |
+| `--depthType` | string | `radial` | `radial` or Cartesian `z` using module intrinsics. |
+| `--abScale` | string | `log` | Active Brightness scaling: `log` or `linear`. |
+| `--depthMin` | float, mm | code-defined constant | Bottom of the depth colormap. Must be at least `0`. |
+| `--depthMax` | float, mm | code-defined constant | Top of the depth colormap. Must be greater than `depthMin`. |
+| `--profile` | integer | `0` | Set to `1` for GPIO timing profiling. The parser requires an argument. |
+| `--profileAvgFps` | integer, seconds | `0` | Average processed FPS across the specified interval. `0` disables it. |
 
 ### Python only options
 
