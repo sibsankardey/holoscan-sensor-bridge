@@ -885,3 +885,7 @@ The updater will:
 | Black/frozen Holoviz window | CUDA or IBV issue | Check `--ibv-name` and CUDA device availability |
 | `Imager Type: Unknown (raw=...)` | `get_imager_type_and_ccb_version()` returned unexpected value | Check byte order: `resp[0]`=Imager Type, `resp[1]`=CCB Version |
 | Wrong pixel dimensions | Imager not yet detected before `compose()` | Ensure `get_imager_type_and_ccb_version()` is called before `application->run()` |
+
+## Support
+1. Reach out to FPGA vendor for getting access to RTL that supports ADCAM and other modules from Analog Devices
+2. Email Holo.Scan@analog.com if you need to reach Analog Devices Holoscan support
