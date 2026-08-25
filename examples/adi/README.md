@@ -410,3 +410,7 @@ Together, ADI sensors and NVIDIA accelerated computing provide a scalable platfo
 # License
 
 Refer to the main repository license and contributing guidelines for usage restrictions and contribution policies.
+
+# Support
+1. Reach out to FPGA vendor for getting access to RTL that supports ADCAM and other modules from Analog Devices
+2. Email Holo.Scan@analog.com if you need to reach Analog Devices Holoscan support
