@@ -14,7 +14,7 @@ target_link_libraries(hololink_adi_imu_op
         hololink
         holoscan::core
         holoscan::pybind11
-    	hololink
+    	hololink::operators
 )
 
 # ---------------------------------------------------------------------------

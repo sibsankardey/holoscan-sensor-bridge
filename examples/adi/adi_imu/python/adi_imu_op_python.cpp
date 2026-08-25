@@ -53,6 +53,7 @@ std::shared_ptr<hololink::ops::ImuHardwareOp> create_imu_operator(
 
 PYBIND11_MODULE(_adi_imu_op, m)
 {
+    py::module_::import("holoscan");
     // 1. Register the class type so Pybind11 knows how to wrap the return value
     py::class_<hololink::ops::ImuHardwareOp,
         holoscan::Operator,

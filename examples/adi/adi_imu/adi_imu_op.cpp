@@ -26,6 +26,95 @@
 #include <unistd.h>
 #include <vector>
 
+// =========================================================================
+// VSYNC OUT DRIVER IMPLEMENTATION - This may change HSB to HSB
+// =========================================================================
+// VSYNC output IP register base address on Hololink sensor bridge
+static constexpr uint32_t VSYNC_BASE = 0x70000000u;
+
+// Register offsets (relative to VSYNC_BASE)
+static constexpr uint32_t VSYNC_REG_EN = 0x00u; // bit0: enable
+static constexpr uint32_t VSYNC_REG_MODE = 0x04u; // bits[3:0]
+static constexpr uint32_t VSYNC_REG_DELAY_NS = 0x08u; // bits[29:0] used
+static constexpr uint32_t VSYNC_REG_START_LEVEL = 0x0Cu; // bit0
+static constexpr uint32_t VSYNC_REG_EXP_NS = 0x10u; // bits[23:0] used
+static constexpr uint32_t VSYNC_REG_GPIO_MUX = 0x14u; // bits[7:0]
+
+// Mode values as implemented in RTL
+// NOTE: RTL currently has duplicated 4'd4 entries, so modes 5 (240Hz) and
+//       6 (300Hz) are not reachable in the current RTL revision.
+static constexpr uint32_t VSYNC_MODE_10HZ = 0u;
+static constexpr uint32_t VSYNC_MODE_30HZ = 1u;
+static constexpr uint32_t VSYNC_MODE_60HZ = 2u;
+static constexpr uint32_t VSYNC_MODE_90HZ = 3u;
+static constexpr uint32_t VSYNC_MODE_120HZ = 4u;
+static constexpr uint32_t VSYNC_MODE_240HZ = 5u; // not reachable in current RTL
+static constexpr uint32_t VSYNC_MODE_300HZ = 6u; // not reachable in current RTL
+                                                 //
+void sync_out_configure(std::shared_ptr<hololink::Hololink> hololink, int freq)
+{
+    uint32_t mode = 0;
+
+    switch (freq) {
+    case 10:
+        mode = VSYNC_MODE_10HZ;
+        break;
+    case 30:
+        mode = VSYNC_MODE_30HZ;
+        break;
+    case 50:
+        mode = VSYNC_MODE_60HZ;
+        break;
+    case 90:
+        mode = VSYNC_MODE_90HZ;
+        break;
+    case 120:
+        mode = VSYNC_MODE_120HZ;
+        break;
+    case 240:
+        mode = VSYNC_MODE_240HZ;
+        break;
+    case 300:
+        mode = VSYNC_MODE_300HZ;
+        break;
+    default:
+        HOLOSCAN_LOG_ERROR("Sync out has not been set correctly.. IMU will not work");
+        mode = 0xFF;
+        break;
+    }
+    // auto hololink = open_hololink(hololink_ip);
+
+    // 1) Disable before reprogramming
+    hololink->write_uint32(VSYNC_BASE + VSYNC_REG_EN, 0x0u);
+
+    // 2) Program all configuration fields with appropriate bit-masks
+    hololink->write_uint32(VSYNC_BASE + VSYNC_REG_MODE, mode & 0x0Fu);
+    hololink->write_uint32(VSYNC_BASE + VSYNC_REG_DELAY_NS, 0 & 0x3FFFFFFFu);
+    hololink->write_uint32(VSYNC_BASE + VSYNC_REG_START_LEVEL, 0 & 0x1u);
+    hololink->write_uint32(VSYNC_BASE + VSYNC_REG_EXP_NS, 100000 & 0x00FFFFFFu);
+
+    // 3) gpio_mux_en: always default 0 (no GPIO mux routing)
+    hololink->write_uint32(VSYNC_BASE + VSYNC_REG_GPIO_MUX, 0x0u);
+
+    // 4) Readback fence to drain posted writes before enabling
+    (void)hololink->read_uint32(VSYNC_BASE + VSYNC_REG_MODE);
+    (void)hololink->read_uint32(VSYNC_BASE + VSYNC_REG_DELAY_NS);
+
+    // 5) Enable
+    hololink->write_uint32(VSYNC_BASE + VSYNC_REG_EN, 0x1u);
+    HOLOSCAN_LOG_INFO("Sync out configured for IMU mode {}", mode);
+}
+
+void sync_out_stop(std::shared_ptr<hololink::Hololink> hololink)
+{
+    //    auto hololink = open_hololink(hololink_ip);
+    hololink->write_uint32(VSYNC_BASE + VSYNC_REG_EN, 0x0u);
+}
+
+// =========================================================================
+// END --VSYNC OUT DRIVER IMPLEMENTATION - This may change HSB to HSB
+// =========================================================================
+
 namespace hololink {
 namespace ops {
 
@@ -335,6 +424,9 @@ namespace ops {
         data_channel_ = std::make_shared<hololink::DataChannel>(metadata);
         auto hl = data_channel_->hololink();
         hl->start();
+
+        // Configure sync out from HSB. Does it works for all HSBs
+        sync_out_configure(hl, current_config_.sync_freq);
 
         gpio_ = hl->get_gpio(metadata);
         spi_ = hl->get_spi(spi_port_.get(), spi_cs_.get(), spi_div_.get(), spi_cpol_.get(), spi_cpha_.get());

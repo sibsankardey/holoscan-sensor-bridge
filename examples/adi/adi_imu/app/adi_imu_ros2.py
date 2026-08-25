@@ -4,9 +4,9 @@ import os
 import sys
 
 import rclpy
+from hololink.operators.adi_imu import create_imu_operator
 
 # from _adi_imu_op import create_imu_operator
-from hololink.operators.adi_imu import create_imu_operator
 from holoscan.conditions import PeriodicCondition
 from holoscan.core import Application, Operator, OperatorSpec
 from rclpy.node import Node
