@@ -211,6 +211,7 @@ public:
         //======================================================================
         std::shared_ptr<holoscan::Operator> receiver_operator;
 
+#ifdef USE_ROCE_RECEIVER	
         if (!ibv_name_.empty()) {
             // ---------------- ROCE path ----------------
             HOLOSCAN_LOG_DEBUG("Using ROCE operator to receive");
@@ -230,7 +231,9 @@ public:
                     adcam_inst->stop();
                 })));
 
-        } else {
+        } 
+#else //!USE_ROCE_RECEIVER
+	{
             // ---------------- Linux path ----------------
             HOLOSCAN_LOG_DEBUG("Using Linux operator to receive");
 
@@ -247,6 +250,7 @@ public:
                     adcam_inst->stop();
                 })));
         }
+#endif //USE_ROCE_RECEIVER
 
         //======================================================================
         // 6. Memory pool for ADI ToF unpack operator
