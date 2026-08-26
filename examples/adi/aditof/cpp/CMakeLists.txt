@@ -14,6 +14,13 @@
 # limitations under the License.
 
 set(ADITOF_INSTALL_TARGETS)
+
+if(HOLOLINK_BUILD_ROCE)
+    set(RECEIVER_LIB hololink::operators::roce_receiver)
+else()
+    set(RECEIVER_LIB hololink::operators::linux_receiver_op)
+endif()
+
 if(NOT HOLOLINK_BUILD_ONLY_NATIVE)
 
 find_package(yaml-cpp REQUIRED)
@@ -32,14 +39,19 @@ add_executable(adcam_player
   crc_table.cpp
   )
 
+if(HOLOLINK_ENABLE_ROCE)
+    target_compile_definitions(adcam_player PRIVATE USE_ROCE_RECEIVER=1)
+else()
+    target_compile_definitions(adcam_player PRIVATE USE_ROCE_RECEIVER=0)
+endif()
+
 include(hololink_deps/pybind11)
 target_link_libraries(adcam_player
   PRIVATE
     hololink
     hololink::operators::csi_to_bayer
     hololink::operators::image_processor
-    hololink::operators::roce_receiver
-    hololink::operators::linux_receiver_op
+    ${RECEIVER_LIB}
     holoscan::core
     holoscan::ops::bayer_demosaic
     holoscan::ops::holoviz
