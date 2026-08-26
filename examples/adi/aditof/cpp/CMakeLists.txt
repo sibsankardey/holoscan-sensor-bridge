@@ -39,10 +39,8 @@ add_executable(adcam_player
   crc_table.cpp
   )
 
-if(HOLOLINK_ENABLE_ROCE)
-    target_compile_definitions(adcam_player PRIVATE USE_ROCE_RECEIVER=1)
-else()
-    target_compile_definitions(adcam_player PRIVATE USE_ROCE_RECEIVER=0)
+if(HOLOLINK_BUILD_ROCE)
+    target_compile_definitions(adcam_player PRIVATE USE_ROCE_RECEIVER)
 endif()
 
 include(hololink_deps/pybind11)
