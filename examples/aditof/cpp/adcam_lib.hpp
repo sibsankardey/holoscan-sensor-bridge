@@ -73,7 +73,6 @@
 #include <hololink/core/logging.hpp>
 #include <hololink/operators/csi_to_bayer/csi_to_bayer.hpp>
 #include <hololink/operators/image_processor/image_processor.hpp>
-#include <hololink/operators/roce_receiver/roce_receiver_op.hpp>
 
 #include <holoscan/holoscan.hpp>
 #include <holoscan/operators/bayer_demosaic/bayer_demosaic.hpp>

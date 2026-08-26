@@ -31,7 +31,9 @@
 #include <hololink/operators/csi_to_bayer/csi_to_bayer.hpp>
 #include <hololink/operators/image_processor/image_processor.hpp>
 #include <hololink/operators/linux_receiver/linux_receiver_op.hpp>
+#ifdef HOLOLINK_BUILD_ROCE
 #include <hololink/operators/roce_receiver/roce_receiver_op.hpp>
+#endif
 
 #include "adcam_lib.hpp"
 #include "adcam_unpack_op.hpp"
@@ -184,6 +186,7 @@ public:
         //======================================================================
         std::shared_ptr<holoscan::Operator> receiver_operator;
 
+#ifdef HOLOLINK_BUILD_ROCE
         if (!ibv_name_.empty()) {
             // ---------------- ROCE path ----------------
             HOLOSCAN_LOG_DEBUG("Using ROCE operator to receive");
@@ -203,7 +206,9 @@ public:
                     adcam_inst->stop();
                 })));
 
-        } else {
+        } else
+#endif
+        {
             // ---------------- Linux path ----------------
             HOLOSCAN_LOG_DEBUG("Using Linux operator to receive");
 

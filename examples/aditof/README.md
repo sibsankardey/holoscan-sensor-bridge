@@ -199,6 +199,89 @@ cmake -S . -B build
 cmake --build build -j$(nproc)
 ```
 
+### Receiver selection (RoCE vs Linux) — AGX Thor and IGX Orin
+
+**The build and run commands in steps 1–3 above are the same on AGX Thor and IGX
+Orin.** There is no platform flag to set and no separate build recipe: the
+correct receiver is selected automatically, at configure time and again at
+startup.
+
+`adcam_player` supports two receivers — `RoceReceiverOp` (RDMA, needs an
+InfiniBand/RoCE NIC) and `LinuxReceiverOp` (UDP sockets, works anywhere).
+
+**Configure time.** `python/setup.py` sets `HOLOLINK_BUILD_ROCE` by checking
+`/sys/class/infiniband` for actual devices, and the RoCE link and code path are
+guarded on it — the same pattern the other examples in `examples/CMakeLists.txt`
+use:
+
+| Host | `/sys/class/infiniband` | `HOLOLINK_BUILD_ROCE` | Receivers compiled in |
+|---|---|---|---|
+| AGX Thor | absent | `OFF` | Linux only |
+| IGX Orin | populated | `ON` | RoCE + Linux |
+
+**Run time.** Where RoCE was compiled in, the player enumerates devices via
+`hololink::infiniband_devices()` at startup and uses `RoceReceiverOp` if one is
+present, otherwise `LinuxReceiverOp`. So an IGX Orin with the NIC unplugged
+still runs, on the Linux path.
+
+| Host | Receiver actually used |
+|---|---|
+| AGX Thor | `LinuxReceiverOp` |
+| IGX Orin, RoCE NIC present | `RoceReceiverOp` |
+| IGX Orin, no NIC at run time | `LinuxReceiverOp` |
+
+Run exactly the same way on both:
+
+```bash
+./build/examples/aditof/cpp/adcam_player --capture 1
+```
+
+On IGX Orin, override the autodetected device if you need a specific one
+(ignored on AGX Thor, where RoCE is not compiled in):
+
+```bash
+./build/examples/aditof/cpp/adcam_player --capture 1 --ibv-name <device>
+```
+
+Check which receiver was chosen:
+
+```bash
+HOLOSCAN_LOG_LEVEL=DEBUG ./build/examples/aditof/cpp/adcam_player --capture 1 2>&1 | grep -i "operator to receive"
+```
+
+Expect `Using Linux operator to receive` on AGX Thor and `Using ROCE operator to
+receive` on IGX Orin.
+
+Check what was compiled in:
+
+```bash
+grep HOLOLINK_BUILD_ROCE build/CMakeCache.txt   # OFF on AGX Thor, ON on IGX Orin
+```
+
+#### Troubleshooting
+
+CMake caches option values and negative `find_*` results, so a stale `build/`
+can keep reporting old values after the container image changes:
+
+```bash
+rm -rf build && cmake -S . -B build
+```
+
+A `build/` created by a previous container run may be owned by `root`, which
+makes reconfiguring in place fail with permission errors:
+
+```bash
+sudo chown -R "$(id -u):$(id -g)" build
+```
+
+If you configure manually on a host that has `libibverbs-dev` installed but no
+RoCE hardware, `HOLOLINK_BUILD_ROCE` defaults to `ON` and pulls in the DOCA
+GPUNetIO transceiver, which needs the DOCA SDK:
+
+```bash
+cmake -S . -B build -DHOLOLINK_BUILD_GPUNETIO_ROCE=OFF
+```
+
 ### 4. Source directory
 
 ```bash

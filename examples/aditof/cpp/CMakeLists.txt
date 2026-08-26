@@ -38,7 +38,6 @@ target_link_libraries(adcam_player
     hololink
     hololink::operators::csi_to_bayer
     hololink::operators::image_processor
-    hololink::operators::roce_receiver
     hololink::operators::linux_receiver_op
     holoscan::core
     holoscan::ops::bayer_demosaic
@@ -51,6 +50,13 @@ target_link_libraries(adcam_player
     OpenSSL::SSL
     OpenSSL::Crypto
   )
+
+# The roce_receiver target only exists with RoCE support; without it the player
+# still builds and uses the Linux receiver.
+if(HOLOLINK_BUILD_ROCE)
+  target_link_libraries(adcam_player PRIVATE hololink::operators::roce_receiver)
+  target_compile_definitions(adcam_player PRIVATE HOLOLINK_BUILD_ROCE)
+endif() # HOLOLINK_BUILD_ROCE
 
 list(APPEND ADITOF_INSTALL_TARGETS adcam_player)
 
