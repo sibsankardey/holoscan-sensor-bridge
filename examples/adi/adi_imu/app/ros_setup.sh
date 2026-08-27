@@ -1,5 +1,4 @@
 #!/bin/bash
-#!/bin/bash
 set -e
 
 echo "========================================"
@@ -50,7 +49,7 @@ echo "Installing ROS2 ${ROS_DISTRO}..."
 export DEBIAN_FRONTEND=noninteractive
 
 
-echo "Installing ROS2 ${ROS_DISTRO} on Ubuntu ${UBUNTU_VERSION}"
+echo "Installing ROS2 ${ROS_DISTRO} on Ubuntu ${VERSION_ID}"
 
 # --------------------------------------------------------------------------
 # Locale Setup

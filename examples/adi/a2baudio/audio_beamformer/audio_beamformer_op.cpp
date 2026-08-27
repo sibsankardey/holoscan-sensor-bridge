@@ -70,9 +70,14 @@ void AudioBeamformerOp::stop()
     // 3. Steering Buffer
     if (d_steering_lags_) {
         cudaFree(d_steering_lags_);
+        cudaFree(d_fractional_lags_);
+        cudaFree(d_peak_vals_);
+        cudaFree(d_filtered_input_);
+        cudaFree(d_iir_x_);
+        cudaFree(d_iir_y_hp_);
+        cudaFree(d_iir_y_lp_);
         d_steering_lags_ = nullptr;
     }
-
     HSB_LOG_INFO("AudioBeamformerOp: Resources released and CUDA memory freed.");
 }
 

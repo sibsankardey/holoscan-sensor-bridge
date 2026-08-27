@@ -3,7 +3,7 @@
 # ==============================================================================
 
 if(NOT HOLOLINK_BUILD_ONLY_NATIVE)
-# 1. Build the native C++ library SHARED
+	# 1. Build the native C++ library STATIC
 add_library(hololink_adi_imu_op STATIC
     adi_imu_op.cpp
 )
@@ -14,7 +14,6 @@ target_link_libraries(hololink_adi_imu_op
         hololink
         holoscan::core
         holoscan::pybind11
-    	hololink::operators
 )
 
 # ---------------------------------------------------------------------------
@@ -45,10 +44,6 @@ configure_file(
     ${CMAKE_CURRENT_BINARY_DIR}/__init__.py
     COPYONLY
 )
-
-#install(TARGETS hololink_adi_imu_op DESTINATION lib)
-#install(TARGETS _adi_imu_op DESTINATION hololink/operators/adi_imu)
-#install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/python/__init__.py DESTINATION hololink/operators/adi_imu)
 
 install(TARGETS hololink_adi_imu_op
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
