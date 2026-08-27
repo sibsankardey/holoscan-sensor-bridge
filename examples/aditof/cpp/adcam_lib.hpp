@@ -57,6 +57,12 @@
 #define READ_PAYLOAD_DEALIAS_CMD 0x02
 #define READ_PAYLOAD_DEALIAS_LEN 32
 
+// Mode map table: the whole table is returned in one burst payload, sized for
+// the maximum number of modes the ADSD3500 can store.
+#define READ_PAYLOAD_MODE_MAP_CMD 0x24
+#define READ_PAYLOAD_MODE_MAP_LEN 256
+#define ADCAM_CCB_MODE_COUNT 10
+
 #include <cstdint>
 #include <getopt.h>
 #include <iostream>
@@ -88,6 +94,33 @@ enum class AdcamImagerType : uint16_t {
     ADSD3100 = 1,
     ADTF3066 = 2,
 };
+
+// ---------------------------------------------------------------------------
+// One entry of the ADSD3500 mode map table, as returned by burst command 0x24.
+// Field order and widths are fixed by the firmware; the struct is read straight
+// out of the 24-byte-per-entry payload.
+// ---------------------------------------------------------------------------
+struct AdcamCcbMode {
+    uint8_t user_defined_mode;
+    uint8_t cfg_mode;
+    uint16_t height;
+    uint16_t width;
+    uint8_t n_freq;
+    uint8_t p0_mode;
+    uint8_t temp_mode;
+    uint8_t ini_index;
+    uint8_t default_mode;
+    uint8_t passive_mode_flag;
+    uint8_t n_phases;
+    uint8_t n_captures;
+    uint16_t spare4;
+    uint16_t spare5;
+    uint16_t spare6;
+    uint16_t spare7;
+    uint16_t spare8;
+};
+static_assert(sizeof(AdcamCcbMode) == 24,
+    "AdcamCcbMode must match the 24-byte firmware mode map entry");
 
 // ---------------------------------------------------------------------------
 // QMP capture mode ? frame geometry and Set Imager Mode parameters.
@@ -304,6 +337,10 @@ public:
     /// Read the CCB-derived intrinsics and dealias parameters for the configured
     /// capture mode out of the module. Returns false if the module did not answer.
     bool read_calibration(AdcamCalibration& calibration);
+
+    /// Read the mode map table the ADSD3500 derived from the CCB. Entries whose
+    /// width or height is zero are unpopulated table slots and are dropped.
+    std::vector<AdcamCcbMode> read_modes_from_ccb();
 
     int probe_adcam_adtf3175();
     std::vector<uint8_t> force_stop_burst_mode();

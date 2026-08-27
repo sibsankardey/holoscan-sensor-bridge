@@ -18,6 +18,7 @@
 #include <getopt.h>
 
 #include <cstdio>
+#include <iomanip>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -354,6 +355,7 @@ int main(int argc, char** argv)
     int32_t adcam_mode = 6;
     int32_t do_reset = 0;
     int32_t do_capture = 0;
+    int32_t do_get_modes = 0;
     std::string firmware_manifest;
     int32_t reset_pin = 0;
     int32_t num_planes = 3;
@@ -407,6 +409,7 @@ int main(int argc, char** argv)
         { "ibv-port", required_argument, nullptr, 0 },
         { "resetAdcam", required_argument, nullptr, 0 },
         { "resetPin", required_argument, nullptr, 0 },
+        { "getModes", required_argument, nullptr, 0 },
         { "firmwareUpdate", required_argument, nullptr, 0 },
         { "capture", required_argument, nullptr, 0 },
         { "numPlanes", required_argument, nullptr, 0 },
@@ -535,6 +538,9 @@ int main(int argc, char** argv)
             } else if (opt->name == std::string("ibv-port")) {
                 ibv_port = std::stoul(argument);
 
+            } else if (opt->name == std::string("getModes")) {
+                do_get_modes = std::stoi(argument);
+
             } else if (opt->name == std::string("resetAdcam")) {
                 do_reset = std::stoi(argument);
 
@@ -584,6 +590,7 @@ int main(int argc, char** argv)
                       << "  --numPlanes <2/3>    Adcam Capture planes (Depth, AB, Conf), default 3\n"
                       << "  --captureFps <1-70>  Adcam Capture FPS (some FPS may not work), default 30\n"
                       << "  --resetAdcam <0/1>   Reset ADCAM module\n"
+                      << "  --getModes <0/1>     Read the mode map table from the CCB and print it\n"
                       << "  --resetPin <0-31>    Reset ADCAM pin, refer readme, default 0\n"
                       << "  --metadata <0-256>   Metadata to be removed from MIPI receive, refer readme, default 0\n"
                       << "  --depthType <radial/z>  Report radial depth (default) or Cartesian Z, using the intrinsics read from the module\n"
@@ -679,6 +686,34 @@ int main(int argc, char** argv)
             print_fw_version("Master", adcam_inst->get_fw_version_burst_mode(GET_MASTER_FIRMWARE_COMMAND));
             print_fw_version("Slave", adcam_inst->get_fw_version_burst_mode(GET_SLAVE_FIRMWARE_COMMAND));
             adcam_inst->switch_from_burst_to_standard();
+        }
+
+        if (do_get_modes > 0) {
+            auto modes = adcam_inst->read_modes_from_ccb();
+
+            std::cout << "Mode map table read from the CCB (" << modes.size()
+                      << " modes):" << std::endl;
+            std::cout << "  mode  cfg  resolution  freq  p0  temp  ini  phases  "
+                         "captures  passive  default"
+                      << std::endl;
+            for (const auto& mode : modes) {
+                std::cout << "  " << std::setw(4) << (int)mode.user_defined_mode
+                          << std::setw(5) << (int)mode.cfg_mode
+                          << std::setw(7) << mode.width << "x" << std::left
+                          << std::setw(4) << mode.height << std::right
+                          << std::setw(5) << (int)mode.n_freq
+                          << std::setw(4) << (int)mode.p0_mode
+                          << std::setw(6) << (int)mode.temp_mode
+                          << std::setw(5) << (int)mode.ini_index
+                          << std::setw(8) << (int)mode.n_phases
+                          << std::setw(10) << (int)mode.n_captures
+                          << std::setw(9) << (int)mode.passive_mode_flag
+                          << std::setw(9) << (int)mode.default_mode << std::endl;
+            }
+
+            hololink->stop();
+            CudaCheck(cuDevicePrimaryCtxRelease(cu_device));
+            return modes.empty() ? EXIT_FAILURE : EXIT_SUCCESS;
         }
 
         if (!firmware_manifest.empty()) {
