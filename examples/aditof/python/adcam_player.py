@@ -21,6 +21,7 @@ import argparse
 import ctypes
 import hashlib
 import logging
+import math
 import os
 import pydoc
 import sys
@@ -35,6 +36,72 @@ import yaml
 import hololink as hololink_module
 
 # import time
+
+
+def print_ccb_mode_table(modes):
+    """Print the modes reported by the ADSD3500 CCB."""
+    print(f"Mode map table read from the CCB ({len(modes)} modes):")
+    print(
+        "  mode  cfg   resolution  freq   p0  temp  ini  phases  "
+        "captures  passive  default"
+    )
+    for mode in modes:
+        print(
+            f"  {mode.user_defined_mode:4d} {mode.cfg_mode:5d} "
+            f"{mode.width:5d}x{mode.height:<5d} {mode.n_freq:4d} "
+            f"{mode.p0_mode:5d} {mode.temp_mode:5d} {mode.ini_index:5d} "
+            f"{mode.n_phases:7d} {mode.n_captures:9d} "
+            f"{mode.passive_mode_flag:8d} {mode.default_mode:8d}"
+        )
+
+
+def depth_legend_labels(depth_min_mm=400.0, depth_max_mm=4000.0):
+    """Build depth legend labels using the C++ player's tick spacing."""
+    span = depth_max_mm - depth_min_mm
+    step_mm = 500.0
+    while int(span / step_mm) > 8:
+        step_mm *= 2.0
+    while step_mm > 1.0 and span < step_mm:
+        step_mm *= 0.5
+    first_mm = math.ceil(depth_min_mm / step_mm) * step_mm
+    tick_count = int((depth_max_mm - first_mm) / step_mm) + 1
+    return [f"{(first_mm + index * step_mm) / 10.0:.0f} cm" for index in range(tick_count)]
+
+
+def depth_legend_spec(views):
+    """Create the text overlay for the depth panel."""
+    spec = holoscan.operators.HolovizOp.InputSpec("DepthLegend", "text")
+    spec.text = depth_legend_labels()
+    spec.color = [1.0, 1.0, 1.0, 1.0]
+    spec.priority = 1
+    spec.views = views
+    return spec
+
+
+def depth_legend_coordinates(depth_min_mm=400.0, depth_max_mm=4000.0):
+    """Build normalized (x, y, size) positions for depth labels."""
+    labels = depth_legend_labels(depth_min_mm, depth_max_mm)
+    span = depth_max_mm - depth_min_mm
+    step_mm = 500.0
+    while int(span / step_mm) > 8:
+        step_mm *= 2.0
+    while step_mm > 1.0 and span < step_mm:
+        step_mm *= 0.5
+    first_mm = math.ceil(depth_min_mm / step_mm) * step_mm
+    return cp.asarray(
+        [
+            (
+                0.055,
+                0.06
+                + 0.88
+                * (1.0 - (first_mm + index * step_mm - depth_min_mm) / span)
+                - 0.015,
+                0.03,
+            )
+            for index in range(len(labels))
+        ],
+        dtype=cp.float32,
+    )
 
 
 class ADTFUnpackOp(holoscan.core.Operator):
@@ -845,6 +912,34 @@ class ADTFUnpackOp(holoscan.core.Operator):
         ).astype(cp.uint8)
 
         rgb = self._jet_lut[depth_norm]
+        bar_x = 0
+        bar_y = int(0.06 * self._height)
+        bar_width = min(int(0.045 * self._width), self._width - bar_x)
+        bar_height = min(int(0.88 * self._height), self._height - bar_y)
+        if bar_width >= 3 and bar_height >= 3:
+            rows = cp.arange(bar_height, dtype=cp.float32)
+            fraction = 1.0 - (rows + 0.5) / bar_height
+            norm = cp.minimum((fraction * 255.0).astype(cp.uint8), 255)
+            bar = self._jet_lut[norm][:, None, :]
+            bar = cp.broadcast_to(bar, (bar_height, bar_width, 3)).copy()
+
+            span = 4000.0 - 400.0
+            step_mm = 500.0
+            while int(span / step_mm) > 8:
+                step_mm *= 2.0
+            value_mm = 400.0 + fraction * span
+            nearest_tick = cp.rint(value_mm / step_mm) * step_mm
+            mm_per_pixel = span / bar_height
+            tick_rows = (nearest_tick >= 400.0) & (
+                cp.abs(value_mm - nearest_tick) <= mm_per_pixel
+            )
+            bar[0, :, :] = 255
+            bar[-1, :, :] = 255
+            bar[:, 0, :] = 255
+            bar[:, -1, :] = 255
+            tick_start = max(2, bar_width // 3)
+            bar[tick_rows, tick_start:, :] = 255
+            rgb[bar_y : bar_y + bar_height, bar_x : bar_x + bar_width, :] = bar
         # shape: (H, W, 3), dtype=uint8
         return rgb
 
@@ -916,11 +1011,16 @@ class ADTFUnpackOp(holoscan.core.Operator):
 
         if self._no_of_planes == 1:
             op_output.emit(
-                {"Depth": cp_frame_u8}, "output"
+                {"Depth": cp_frame_u8, "DepthLegend": depth_legend_coordinates()}, "output"
             )  # CHECK: This is for raw data passing
         elif self._no_of_planes == 2:
             op_output.emit(
-                {"Depth": depth_c, "ActiveBrightness": active_brightness_c}, "output"
+                {
+                    "Depth": depth_c,
+                    "ActiveBrightness": active_brightness_c,
+                    "DepthLegend": depth_legend_coordinates(),
+                },
+                "output",
             )
         elif self._no_of_planes == 3:
             op_output.emit(
@@ -928,6 +1028,7 @@ class ADTFUnpackOp(holoscan.core.Operator):
                     "Depth": depth_c,
                     "ActiveBrightness": active_brightness_c,
                     "Conf": conf_c,
+                    "DepthLegend": depth_legend_coordinates(),
                 },
                 "output",
             )
@@ -1065,7 +1166,7 @@ class HoloscanApplication(holoscan.core.Application):
                 framebuffer_srgb=True,
                 # tensors=[left_spec],
                 # tensors=[left_spec, center_spec],
-                tensors=[left_spec, center_spec],
+                tensors=[left_spec, center_spec, depth_legend_spec(left_spec.views)],
                 height=window_height,
                 width=window_width,
                 window_title=window_title,
@@ -1113,7 +1214,12 @@ class HoloscanApplication(holoscan.core.Application):
                 framebuffer_srgb=True,
                 # tensors=[left_spec],
                 # tensors=[left_spec, center_spec],
-                tensors=[left_spec, center_spec, right_spec],
+                tensors=[
+                    left_spec,
+                    center_spec,
+                    right_spec,
+                    depth_legend_spec(left_spec.views),
+                ],
                 height=window_height,
                 width=window_width,
                 window_title=window_title,
@@ -1176,9 +1282,17 @@ def main():
     parser.add_argument(
         "--captureMode",
         type=int,
-        default=6,
+        default=None,
         required=False,
-        help="Capture mode index (0-9, default 6)",
+        help="Capture mode index (0-9, required with --capture)",
+    )
+
+    parser.add_argument(
+        "--getModes",
+        type=int,
+        default=0,
+        required=False,
+        help="Read and print the mode map table from the CCB",
     )
 
     parser.add_argument(
@@ -1249,8 +1363,8 @@ def main():
     parser.add_argument(
         "--frame-limit",
         type=int_or_none,
-        default=300,
-        help="Exit after receiving this many frames",
+        default=None,
+        help="Exit after receiving this many frames (default: stream indefinitely)",
     )
 
     infiniband_devices = hololink_module.infiniband_devices()
@@ -1284,6 +1398,8 @@ def main():
         )
 
     args = parser.parse_args()
+    capture_mode_set = args.captureMode is not None
+    capture_mode = args.captureMode if capture_mode_set else 6
 
     hololink_module.logging_level(2)
     logging.info("Initializing.")
@@ -1303,8 +1419,8 @@ def main():
     )
 
     # Validate captureMode range
-    if not (0 <= args.captureMode <= 9):
-        print(f"Error: --captureMode must be 0-9, got {args.captureMode}")
+    if capture_mode_set and not (0 <= capture_mode <= 9):
+        print(f"Error: --captureMode must be 0-9, got {capture_mode}")
         sys.exit(1)
     # Validate resetPin range
     if not (0 <= args.resetPin <= 31):
@@ -1329,7 +1445,7 @@ def main():
         hololink_channel,
         hololink_module.CAM_I2C_BUS,
         channel_metadata,
-        adcam_mode=args.captureMode,
+        adcam_mode=capture_mode,
         reset_pin=args.resetPin,
         num_planes=args.numPlanes,
         tof_fps=args.captureFps,
@@ -1369,6 +1485,37 @@ def main():
     if args.getStatus == 1:
         logging.debug("Getting only status")
         adcam_inst.get_status()
+
+    if args.getModes == 1 or args.capture == 1:
+        modes = adcam_inst.read_modes_from_ccb()
+        print_ccb_mode_table(modes)
+
+        if args.getModes == 1:
+            hololink.stop()
+            sys.exit(0 if modes else 1)
+
+        if not modes:
+            print("Error: could not read the CCB mode map table")
+            hololink.stop()
+            sys.exit(1)
+
+        if not capture_mode_set:
+            print(
+                "Error: specify --captureMode <n> with one of the modes "
+                "listed above when using --capture"
+            )
+            hololink.stop()
+            sys.exit(1)
+
+        if not any(mode.user_defined_mode == capture_mode for mode in modes):
+            print(
+                f"Error: unsupported capture mode {capture_mode}; "
+                "use one of the modes listed above"
+            )
+            hololink.stop()
+            sys.exit(1)
+
+        print(f"Capture mode {capture_mode} is supported.")
 
     # ---------------------------------------------------------------------------
     # Firmware update via YAML manifest (mirrors C++ Programmer flow)
