@@ -454,7 +454,8 @@ int main(int argc, char** argv)
 
         std::shared_ptr<hololink::Hololink> hololink = hololink_channel.hololink();
         hololink->start();
-        hololink->reset();
+	//commenting out reset to avoid other application using hololink to stop working
+        //hololink->reset();
 
         auto i2s = std::make_shared<LegacyI2s>(hololink, i2s_address);
 
