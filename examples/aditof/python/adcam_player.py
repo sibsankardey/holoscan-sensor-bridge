@@ -65,7 +65,9 @@ def depth_legend_labels(depth_min_mm=400.0, depth_max_mm=4000.0):
         step_mm *= 0.5
     first_mm = math.ceil(depth_min_mm / step_mm) * step_mm
     tick_count = int((depth_max_mm - first_mm) / step_mm) + 1
-    return [f"{(first_mm + index * step_mm) / 10.0:.0f} cm" for index in range(tick_count)]
+    return [
+        f"{(first_mm + index * step_mm) / 10.0:.0f} cm" for index in range(tick_count)
+    ]
 
 
 def depth_legend_spec(views):
@@ -93,8 +95,7 @@ def depth_legend_coordinates(depth_min_mm=400.0, depth_max_mm=4000.0):
             (
                 0.055,
                 0.06
-                + 0.88
-                * (1.0 - (first_mm + index * step_mm - depth_min_mm) / span)
+                + 0.88 * (1.0 - (first_mm + index * step_mm - depth_min_mm) / span)
                 - 0.015,
                 0.03,
             )
@@ -1011,7 +1012,8 @@ class ADTFUnpackOp(holoscan.core.Operator):
 
         if self._no_of_planes == 1:
             op_output.emit(
-                {"Depth": cp_frame_u8, "DepthLegend": depth_legend_coordinates()}, "output"
+                {"Depth": cp_frame_u8, "DepthLegend": depth_legend_coordinates()},
+                "output",
             )  # CHECK: This is for raw data passing
         elif self._no_of_planes == 2:
             op_output.emit(
