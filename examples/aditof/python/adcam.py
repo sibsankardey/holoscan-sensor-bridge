@@ -37,6 +37,8 @@ ADSD3500_CMD_GET_STATUS = 0x0020
 RESET_ADSD3500_CMD = 0x00240000
 GET_MASTER_CHIP_ID_CMD = 0x0112
 GET_SLAVE_CHIP_ID_CMD = 0x0116
+ADSD3500_MASTER_CHIP_ID = 0x5931
+ADSD3500_SLAVE_CHIP_ID = 0x5932
 SET_SWITCH_TO_BURST_MODE = 0x0019
 READ_PAYLOAD_MODE_MAP_CMD = 0x24
 READ_PAYLOAD_MODE_MAP_LEN = 256
@@ -1516,13 +1518,20 @@ class adcam:
             return False
         print(f"[INFO] Firmware version match confirmed: {master_ver}")
 
-        # --- Probe master device (mandatory) ---
+        # --- Probe master device (mandatory); validate chip ID ---
         master_resp = self.set_register16_response(GET_MASTER_CHIP_ID_CMD, 2)
-        if master_resp is None or len(master_resp) < 2:
-            print("No ADSD3500 master device detected. Aborting firmware update.")
+        master_chip_id = 0
+        if master_resp is not None and len(master_resp) >= 2:
+            master_chip_id = (master_resp[0] << 8) | master_resp[1]
+        if master_chip_id == ADSD3500_MASTER_CHIP_ID:
+            print(f"[INFO] Master Chip ID is: 0x{master_chip_id:04X}")
+        else:
+            print(
+                "No ADSD3500 master device detected "
+                f"(chip ID 0x{master_chip_id:04X} does not match expected "
+                f"0x{ADSD3500_MASTER_CHIP_ID:04X}). Aborting firmware update."
+            )
             return False
-        master_chip_id = (master_resp[0] << 8) | master_resp[1]
-        print(f"[INFO] Master Chip ID is: 0x{master_chip_id:04X}")
 
         # --- Probe slave device (optional) ---
         # NOTE: Reading slave chip ID (0x0116) directly causes I2C NAK and
