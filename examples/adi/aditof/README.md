@@ -194,8 +194,9 @@ cd holoscan-sensor-bridge
 
 ### 1. Build the container and start it (from the repo root on the devkit)
 
+Build the sensor bridge demonstration container. For systems with iGPU,
 ```bash
-sh ./docker/build.sh
+sh ./docker/build.sh --igpu
 
 export DISPLAY=$DISPLAY
 
@@ -203,6 +204,9 @@ xhost +
 
 sh ./docker/demo.sh
 ```
+Note: igpu is appropriate for systems running on a system with iGPU (e.g. AGX or IGX without a
+dGPU). This requires an OS installed with iGPU support (For example: for AGX: JetPack 6.0, and for
+IGX: IGX OS with iGPU configuration).
 
 The demo image builds the C++ examples and makes `adcam_player` available at:
 
@@ -323,10 +327,10 @@ python3 examples/adi/aditof/python/adcam_player.py --captureMode 8 --capture 1 -
 
 ```bash
 # C++
-adcam_player --firmwareUpdate adi_manifest.yaml
+adcam_player --firmwareUpdate examples/adi/aditof/adi_manifest.yaml
 
 # Python
-python3 examples/adi/aditof/python/adcam_player.py --firmwareUpdate adi_manifest.yaml
+python3 examples/adi/aditof/python/adcam_player.py --firmwareUpdate examples/adi/aditof/adi_manifest.yaml
 ```
 
 ### Lattice CPNX100-ETH-SENSOR-BRIDGE
@@ -399,10 +403,10 @@ python3 examples/adi/aditof/python/adcam_player.py --captureMode 8 --capture 1 -
 
 ```bash
 # C++
-adcam_player --firmwareUpdate adi_manifest.yaml
+adcam_player --firmwareUpdate examples/adi/aditof/adi_manifest.yaml
 
 # Python
-python3 examples/adi/aditof/python/adcam_player.py --firmwareUpdate adi_manifest.yaml
+python3 examples/adi/aditof/python/adcam_player.py --firmwareUpdate examples/adi/aditof/adi_manifest.yaml
 ```
 
 ---
@@ -946,7 +950,7 @@ All steps run inside `ADTFUnpackOp::compute()` in `adcam_unpack_op.cpp`. Steps 1
    - `md5` — MD5 hash from step 2
 4. Run the updater:
    ```bash
-   ./adcam_player --firmwareUpdate adi_manifest.yaml
+    adcam_player --firmwareUpdate examples/adi/aditof/adi_manifest.yaml
    ```
 
 The updater will:
