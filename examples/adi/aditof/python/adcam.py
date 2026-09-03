@@ -37,7 +37,12 @@ ADSD3500_CMD_GET_STATUS = 0x0020
 RESET_ADSD3500_CMD = 0x00240000
 GET_MASTER_CHIP_ID_CMD = 0x0112
 GET_SLAVE_CHIP_ID_CMD = 0x0116
+ADSD3500_MASTER_CHIP_ID = 0x5931
+ADSD3500_SLAVE_CHIP_ID = 0x5932
 SET_SWITCH_TO_BURST_MODE = 0x0019
+READ_PAYLOAD_MODE_MAP_CMD = 0x24
+READ_PAYLOAD_MODE_MAP_LEN = 256
+ADCAM_CCB_MODE_COUNT = 10
 STREAM_ON_CMD = 0x00AD
 STREAM_ON_VAL = 0x00C5
 STREAM_OFF_CMD = 0x000C
@@ -451,6 +456,29 @@ AdcamModeConfig = namedtuple(
     ],
 )
 
+AdcamCcbMode = namedtuple(
+    "AdcamCcbMode",
+    [
+        "user_defined_mode",
+        "cfg_mode",
+        "height",
+        "width",
+        "n_freq",
+        "p0_mode",
+        "temp_mode",
+        "ini_index",
+        "default_mode",
+        "passive_mode_flag",
+        "n_phases",
+        "n_captures",
+        "spare4",
+        "spare5",
+        "spare6",
+        "spare7",
+        "spare8",
+    ],
+)
+
 # ADSD3100: MP (1024×1024, 2 Gbps) and QMP (512×512, 1 Gbps)
 ADSD3100_STANDARD_MODES = [
     # ---- MP modes (1024×1024, 2 Gbps MIPI) ----
@@ -821,6 +849,52 @@ class adcam:
         REGISTER = 0xAD000010000000001000000001000000
         self.set_register16_no_response(REGISTER)
         return True
+
+    def read_modes_from_ccb(self):
+        """Read and decode the ADSD3500 CCB mode map table."""
+        if not self.switch_from_standard_to_burst():
+            return []
+        time.sleep(0.005)
+
+        length_high = READ_PAYLOAD_MODE_MAP_LEN >> 8
+        length_low = READ_PAYLOAD_MODE_MAP_LEN & 0xFF
+        checksum = (length_high + length_low + READ_PAYLOAD_MODE_MAP_CMD) & 0xFFFF
+        register = struct.pack(
+            ">8H",
+            0xAD00 | length_high,
+            (length_low << 8) | READ_PAYLOAD_MODE_MAP_CMD,
+            0,
+            0,
+            checksum << 8,
+            0,
+            0,
+            0,
+        )
+
+        try:
+            reply = self._i2c.i2c_transaction(
+                self.ADCAM_I2C_BUS_ADDRESS,
+                register,
+                READ_PAYLOAD_MODE_MAP_LEN,
+                timeout=hololink_module.Timeout(30, retry_s=0.2),
+            )
+        except Exception as e:
+            logging.error(f"read_modes_from_ccb: mode map read failed: {e}")
+            reply = None
+        finally:
+            self.switch_from_burst_to_standard()
+
+        if reply is None or len(reply) < READ_PAYLOAD_MODE_MAP_LEN:
+            logging.error("read_modes_from_ccb: incomplete mode map response")
+            return []
+
+        modes = []
+        for index in range(ADCAM_CCB_MODE_COUNT):
+            entry = struct.unpack_from("<BBHHBBBBBBBBHHHHH", reply, index * 24)
+            mode = AdcamCcbMode(*entry)
+            if mode.width and mode.height:
+                modes.append(mode)
+        return modes
 
     def force_stop_burst_mode(self):
         logging.debug("Forcing burst mode off")
@@ -1444,13 +1518,20 @@ class adcam:
             return False
         print(f"[INFO] Firmware version match confirmed: {master_ver}")
 
-        # --- Probe master device (mandatory) ---
+        # --- Probe master device (mandatory); validate chip ID ---
         master_resp = self.set_register16_response(GET_MASTER_CHIP_ID_CMD, 2)
-        if master_resp is None or len(master_resp) < 2:
-            print("No ADSD3500 master device detected. Aborting firmware update.")
+        master_chip_id = 0
+        if master_resp is not None and len(master_resp) >= 2:
+            master_chip_id = (master_resp[0] << 8) | master_resp[1]
+        if master_chip_id == ADSD3500_MASTER_CHIP_ID:
+            print(f"[INFO] Master Chip ID is: 0x{master_chip_id:04X}")
+        else:
+            print(
+                "No ADSD3500 master device detected "
+                f"(chip ID 0x{master_chip_id:04X} does not match expected "
+                f"0x{ADSD3500_MASTER_CHIP_ID:04X}). Aborting firmware update."
+            )
             return False
-        master_chip_id = (master_resp[0] << 8) | master_resp[1]
-        print(f"[INFO] Master Chip ID is: 0x{master_chip_id:04X}")
 
         # --- Probe slave device (optional) ---
         # NOTE: Reading slave chip ID (0x0116) directly causes I2C NAK and

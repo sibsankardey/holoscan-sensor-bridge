@@ -17,7 +17,9 @@
 
 #include <getopt.h>
 
+#include <algorithm>
 #include <cstdio>
+#include <iomanip>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -41,6 +43,31 @@
 #include <holoscan/operators/holoviz/holoviz.hpp>
 
 namespace {
+
+// Dump the mode map table the module reports, so an unsupported capture mode can
+// be matched against what the CCB actually offers.
+void print_ccb_mode_table(const std::vector<hololink::sensors::AdcamCcbMode>& modes)
+{
+    std::cout << "Mode map table read from the CCB (" << modes.size()
+              << " modes):" << std::endl;
+    std::cout << "  mode  cfg   resolution  freq   p0  temp  ini  phases  "
+                 "captures  passive  default"
+              << std::endl;
+    for (const auto& mode : modes) {
+        std::cout << "  " << std::setw(4) << (int)mode.user_defined_mode
+                  << std::setw(5) << (int)mode.cfg_mode
+                  << std::setw(8) << mode.width << "x" << std::left
+                  << std::setw(5) << mode.height << std::right
+                  << std::setw(4) << (int)mode.n_freq
+                  << std::setw(5) << (int)mode.p0_mode
+                  << std::setw(6) << (int)mode.temp_mode
+                  << std::setw(5) << (int)mode.ini_index
+                  << std::setw(8) << (int)mode.n_phases
+                  << std::setw(10) << (int)mode.n_captures
+                  << std::setw(9) << (int)mode.passive_mode_flag
+                  << std::setw(9) << (int)mode.default_mode << std::endl;
+    }
+}
 
 // Tick labels of the depth colorbar; one per tick the unpack operator positions.
 std::vector<std::string> depth_legend_labels(float depth_min_mm, float depth_max_mm)
@@ -185,7 +212,7 @@ public:
         std::shared_ptr<holoscan::Operator> receiver_operator;
 
 #ifdef USE_ROCE_RECEIVER	
-        {
+        if (!ibv_name_.empty()) {
             // ---------------- ROCE path ----------------
             HOLOSCAN_LOG_DEBUG("Using ROCE operator to receive");
 
@@ -351,8 +378,10 @@ int main(int argc, char** argv)
     // 1. Default configuration values
     //--------------------------------------------------------------------------
     int32_t adcam_mode = 6;
+    bool adcam_mode_set = false;
     int32_t do_reset = 0;
     int32_t do_capture = 0;
+    int32_t do_get_modes = 0;
     std::string firmware_manifest;
     int32_t reset_pin = 0;
     int32_t num_planes = 3;
@@ -406,6 +435,7 @@ int main(int argc, char** argv)
         { "ibv-port", required_argument, nullptr, 0 },
         { "resetAdcam", required_argument, nullptr, 0 },
         { "resetPin", required_argument, nullptr, 0 },
+        { "getModes", required_argument, nullptr, 0 },
         { "firmwareUpdate", required_argument, nullptr, 0 },
         { "capture", required_argument, nullptr, 0 },
         { "numPlanes", required_argument, nullptr, 0 },
@@ -437,6 +467,7 @@ int main(int argc, char** argv)
 
             if (opt->name == std::string("captureMode")) {
                 adcam_mode = std::stoi(argument);
+                adcam_mode_set = true;
 
                 if (adcam_mode < 0 || adcam_mode > 9) {
                     throw std::runtime_error(fmt::format(
@@ -534,6 +565,9 @@ int main(int argc, char** argv)
             } else if (opt->name == std::string("ibv-port")) {
                 ibv_port = std::stoul(argument);
 
+            } else if (opt->name == std::string("getModes")) {
+                do_get_modes = std::stoi(argument);
+
             } else if (opt->name == std::string("resetAdcam")) {
                 do_reset = std::stoi(argument);
 
@@ -579,10 +613,11 @@ int main(int argc, char** argv)
                       << "  -h, --help           Show this help message\n"
                       << "  --hololink <ip>      Hololink board IP (default " << hololink_ip << ")\n"
                       << "  --capture <0/1>      Capture and display Adcam data\n"
-                      << "  --captureMode <0-6>  Adcam Capture code (0-6), default 6\n"
+                      << "  --captureMode <0-9>  Adcam Capture code, required with --capture; see --getModes\n"
                       << "  --numPlanes <2/3>    Adcam Capture planes (Depth, AB, Conf), default 3\n"
                       << "  --captureFps <1-70>  Adcam Capture FPS (some FPS may not work), default 30\n"
                       << "  --resetAdcam <0/1>   Reset ADCAM module\n"
+                      << "  --getModes <0/1>     Read the mode map table from the CCB and print it\n"
                       << "  --resetPin <0-31>    Reset ADCAM pin, refer readme, default 0\n"
                       << "  --metadata <0-256>   Metadata to be removed from MIPI receive, refer readme, default 0\n"
                       << "  --depthType <radial/z>  Report radial depth (default) or Cartesian Z, using the intrinsics read from the module\n"
@@ -680,6 +715,15 @@ int main(int argc, char** argv)
             adcam_inst->switch_from_burst_to_standard();
         }
 
+        if (do_get_modes > 0) {
+            auto modes = adcam_inst->read_modes_from_ccb();
+            print_ccb_mode_table(modes);
+
+            hololink->stop();
+            CudaCheck(cuDevicePrimaryCtxRelease(cu_device));
+            return modes.empty() ? EXIT_FAILURE : EXIT_SUCCESS;
+        }
+
         if (!firmware_manifest.empty()) {
             hololink::Programmer::Args args;
             args.manifest = firmware_manifest;
@@ -714,7 +758,50 @@ int main(int argc, char** argv)
         adcam_inst->get_imager_type_and_ccb_version();
 
         //--------------------------------------------------------------------------
-        // 4.5 Optional radial -> Cartesian Z conversion table
+        // 4.5 Reject capture modes the module's CCB does not offer
+        //--------------------------------------------------------------------------
+        if (do_capture > 0) {
+            auto modes = adcam_inst->read_modes_from_ccb();
+            print_ccb_mode_table(modes);
+
+            if (modes.empty()) {
+                std::cerr << "Could not read the mode map table; "
+                             "cannot verify that capture mode "
+                          << adcam_mode << " is supported." << std::endl;
+                hololink->stop();
+                CudaCheck(cuDevicePrimaryCtxRelease(cu_device));
+                return EXIT_FAILURE;
+            }
+
+            if (!adcam_mode_set) {
+                std::cerr << "No capture mode specified; pass --captureMode <n> "
+                             "with one of the modes listed above."
+                          << std::endl;
+                hololink->stop();
+                CudaCheck(cuDevicePrimaryCtxRelease(cu_device));
+                return EXIT_FAILURE;
+            }
+
+            const bool supported = std::any_of(modes.begin(), modes.end(),
+                [adcam_mode](const hololink::sensors::AdcamCcbMode& mode) {
+                    return mode.user_defined_mode == adcam_mode;
+                });
+
+            if (!supported) {
+                std::cerr << "Unsupported capture mode " << adcam_mode
+                          << "; this module offers the modes listed above."
+                          << std::endl;
+                hololink->stop();
+                CudaCheck(cuDevicePrimaryCtxRelease(cu_device));
+                return EXIT_FAILURE;
+            }
+
+            std::cout << "Capture mode " << adcam_mode << " is supported."
+                      << std::endl;
+        }
+
+        //--------------------------------------------------------------------------
+        // 4.6 Optional radial -> Cartesian Z conversion table
         //--------------------------------------------------------------------------
         std::vector<float> z_table;
         if (cartesian_depth) {
@@ -736,7 +823,7 @@ int main(int argc, char** argv)
         }
 
         //--------------------------------------------------------------------------
-        // 4.6 Create and run Holoscan application
+        // 4.7 Create and run Holoscan application
         //--------------------------------------------------------------------------
         if (do_capture > 0) {
             auto application = holoscan::make_application<HoloscanApplication>(

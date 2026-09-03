@@ -774,6 +774,50 @@ std::vector<uint8_t> Adcam::read_payload_cmd(uint8_t cmd,
     return resp;
 }
 
+std::vector<AdcamCcbMode> Adcam::read_modes_from_ccb()
+{
+    std::vector<AdcamCcbMode> modes;
+
+    if (!switch_from_standard_to_burst()) {
+        return modes;
+    }
+    // The firmware needs a moment before it serves payloads in burst mode.
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+    // The mode map table is a property of the CCB, not of a capture mode, so the
+    // argument byte is unused for this command.
+    auto payload = read_payload_cmd(READ_PAYLOAD_MODE_MAP_CMD, 0,
+        READ_PAYLOAD_MODE_MAP_LEN);
+
+    switch_from_burst_to_standard();
+
+    if (payload.empty()) {
+        HOLOSCAN_LOG_ERROR("read_modes_from_ccb: failed to read the mode map table");
+        return modes;
+    }
+
+    for (size_t i = 0; i < ADCAM_CCB_MODE_COUNT; ++i) {
+        const size_t offset = i * sizeof(AdcamCcbMode);
+        if (offset + sizeof(AdcamCcbMode) > payload.size()) {
+            break;
+        }
+
+        AdcamCcbMode mode {};
+        std::memcpy(&mode, payload.data() + offset, sizeof(mode));
+
+        // Unpopulated table slots read back as zeroed geometry.
+        if (mode.width == 0 || mode.height == 0) {
+            continue;
+        }
+        modes.push_back(mode);
+    }
+
+    if (modes.empty()) {
+        HOLOSCAN_LOG_ERROR("read_modes_from_ccb: mode map table holds no valid entries");
+    }
+    return modes;
+}
+
 bool Adcam::read_calibration(AdcamCalibration& calibration)
 {
     if (!switch_from_standard_to_burst()) {
