@@ -1,0 +1,35 @@
+# adi_imu_config.yaml
+imu_hardware:
+  hsb_ip: "192.168.0.2"
+  # SYNC rate (Hz) - should match what setup is via sync tool if sync_pin is positive (max is 128)
+  sync_freq: 120 
+  # output rate for IMU ROS message - limited by output_freq = sync_freq * upscale / (dec + 1) where
+  # upscale and dec must be integers and output_freq must be a integer result.  Valid values are
+  # 255, 240, 204, 192 however should be limited based on how fast the SPI reads can actually be. 
+  output_freq: 240
+  spi_port: 2
+  spi_cs: 0
+  # this determines the SPI bus rate (about 1 MHz) - set in FPGA
+  spi_div: 10 
+  spi_cpol: 1
+  spi_cpha: 1
+  # note all pins noted here are logical pin number CPRO_TEST_POINT_pin# and not J20 actual
+  # pin numbers!
+  reset_pin: 9 
+  dr_pin: 8
+  # if you use -1, it will revert to DR pin only mode.  13 is used on J20 for sync mode
+  sync_pin: 13
+  #  local gravity value
+  local_gravity: 9.80665
+  
+imu_models:
+  ADIS16505-2:
+    gyro_scale: 0.000000006657734125   # (0.025 * pi/180) / 65536
+    accel_scale: 0.000000037384033203  # (0.00025 * 9.80665) / 65536
+    temp_scale: 0.1
+    temp_offset: 0.0
+  ADIS16607-2:
+    gyro_scale: 0.0000010908307825     # (1/16000) * pi/180
+    accel_scale: 0.00004903325         # (1/200000) * 9.80665
+    temp_scale: 0.005
+    temp_offset: 25.0

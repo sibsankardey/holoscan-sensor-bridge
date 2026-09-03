@@ -226,7 +226,7 @@ cmake --build build -j$(nproc)
 ### 4. Source directory
 
 ```bash
-ls examples/aditof/
+ls examples/adi/aditof/
 # cpp/                — C++ sources and CMakeLists.txt
 # python/             — Python helper scripts
 # adi_manifest.yaml   — Firmware download manifest (URL, size, MD5 for ADCAM_Fw_Dual_Update_X.Y.Z.bin)
@@ -236,7 +236,7 @@ ls examples/aditof/
 ### 5. Rebuilt output binary
 
 ```
-./build/examples/aditof/cpp/adcam_player
+./build/examples/adi/aditof/cpp/adcam_player
 ```
 
 ---
@@ -252,7 +252,7 @@ adcam_player --help
 ### Python player
 
 ```bash
-python3 examples/aditof/python/adcam_player.py --help
+python3 examples/adi/aditof/python/adcam_player.py --help
 ```
 
 ### Examples
@@ -270,7 +270,7 @@ python3 examples/aditof/python/adcam_player.py --help
 adcam_player --resetAdcam 1 --getModes 1
 
 # Python — full power-on reset
-python3 examples/aditof/python/adcam_player.py --resetAdcam 1 --getModes 1
+python3 examples/adi/aditof/python/adcam_player.py --resetAdcam 1 --getModes 1
 ```
 
 #### Capture only (device already running)
@@ -285,10 +285,10 @@ adcam_player --captureMode 2 --capture 1 --maxMipi 1000
 adcam_player --captureMode 3 --capture 1 --maxMipi 1000
 
 # Python
-python3 examples/aditof/python/adcam_player.py --captureMode 2 --capture 1 --maxMipi 1500
-python3 examples/aditof/python/adcam_player.py --captureMode 3 --capture 1 --maxMipi 1500
-python3 examples/aditof/python/adcam_player.py --captureMode 2 --capture 1 --maxMipi 1000
-python3 examples/aditof/python/adcam_player.py --captureMode 3 --capture 1 --maxMipi 1000
+python3 examples/adi/aditof/python/adcam_player.py --captureMode 2 --capture 1 --maxMipi 1500
+python3 examples/adi/aditof/python/adcam_player.py --captureMode 3 --capture 1 --maxMipi 1500
+python3 examples/adi/aditof/python/adcam_player.py --captureMode 2 --capture 1 --maxMipi 1000
+python3 examples/adi/aditof/python/adcam_player.py --captureMode 3 --capture 1 --maxMipi 1000
 ```
 
 #### ADTF3066 - VGA modes (512x640, 1 / 1.5 Gbps MIPI)
@@ -300,9 +300,9 @@ adcam_player --captureMode 1 --capture 1 --maxMipi 1500
 adcam_player --captureMode 7 --capture 1 --maxMipi 1500
 
 # Python
-python3 examples/aditof/python/adcam_player.py --captureMode 0 --capture 1 --maxMipi 1500
-python3 examples/aditof/python/adcam_player.py --captureMode 1 --capture 1 --maxMipi 1500
-python3 examples/aditof/python/adcam_player.py --captureMode 7 --capture 1 --maxMipi 1500
+python3 examples/adi/aditof/python/adcam_player.py --captureMode 0 --capture 1 --maxMipi 1500
+python3 examples/adi/aditof/python/adcam_player.py --captureMode 1 --capture 1 --maxMipi 1500
+python3 examples/adi/aditof/python/adcam_player.py --captureMode 7 --capture 1 --maxMipi 1500
 ```
 
 #### ADTF3066 - QVGA modes (256x320, 1 / 1.5 Gbps MIPI)
@@ -314,9 +314,9 @@ adcam_player --captureMode 6 --capture 1 --maxMipi 1500
 adcam_player --captureMode 8 --capture 1 --maxMipi 1500
 
 # Python
-python3 examples/aditof/python/adcam_player.py --captureMode 3 --capture 1 --maxMipi 1500
-python3 examples/aditof/python/adcam_player.py --captureMode 6 --capture 1 --maxMipi 1500
-python3 examples/aditof/python/adcam_player.py --captureMode 8 --capture 1 --maxMipi 1500
+python3 examples/adi/aditof/python/adcam_player.py --captureMode 3 --capture 1 --maxMipi 1500
+python3 examples/adi/aditof/python/adcam_player.py --captureMode 6 --capture 1 --maxMipi 1500
+python3 examples/adi/aditof/python/adcam_player.py --captureMode 8 --capture 1 --maxMipi 1500
 ```
 
 #### Firmware update
@@ -326,7 +326,7 @@ python3 examples/aditof/python/adcam_player.py --captureMode 8 --capture 1 --max
 adcam_player --firmwareUpdate adi_manifest.yaml
 
 # Python
-python3 examples/aditof/python/adcam_player.py --firmwareUpdate adi_manifest.yaml
+python3 examples/adi/aditof/python/adcam_player.py --firmwareUpdate adi_manifest.yaml
 ```
 
 ### Lattice CPNX100-ETH-SENSOR-BRIDGE
@@ -338,7 +338,7 @@ python3 examples/aditof/python/adcam_player.py --firmwareUpdate adi_manifest.yam
 adcam_player --resetAdcam 1 --resetPin <pin number/default 0> --captureMode <mode> --capture 1 --maxMipi <Lane speed in Mbps/default 2.5Gbps> --metadata <default 0 or 128>
 
 # Python — full power-on reset, then capture
-python3 examples/aditof/python/adcam_player.py --resetAdcam 1 --resetPin <pin number/default 0> --capture 1 --maxMipi <Lane speed in Mbps/default 2500 or 2.5Gbps> --metadata <default 0 or 128>
+python3 examples/adi/aditof/python/adcam_player.py --resetAdcam 1 --resetPin <pin number/default 0> --capture 1 --maxMipi <Lane speed in Mbps/default 2500 or 2.5Gbps> --metadata <default 0 or 128>
 ```
 
 #### Capture only (device already running)
@@ -348,7 +348,7 @@ python3 examples/aditof/python/adcam_player.py --resetAdcam 1 --resetPin <pin nu
 adcam_player --captureMode <mode> --capture 1 --maxMipi <Lane speed in Mbps> --metadata <default 0 or 128>
 
 # Python
-python3 examples/aditof/python/adcam_player.py --capture 1 --maxMipi <Lane speed in Mbps> --metadata <default 0 or 128>
+python3 examples/adi/aditof/python/adcam_player.py --capture 1 --maxMipi <Lane speed in Mbps> --metadata <default 0 or 128>
 ```
 
 #### ADSD3100 - QMP modes (512x512, 1 / 1.5 Gbps MIPI)
@@ -361,10 +361,10 @@ adcam_player --captureMode 2 --capture 1 --maxMipi 1000
 adcam_player --captureMode 3 --capture 1 --maxMipi 1000
 
 # Python
-python3 examples/aditof/python/adcam_player.py --captureMode 2 --capture 1 --maxMipi 1500
-python3 examples/aditof/python/adcam_player.py --captureMode 3 --capture 1 --maxMipi 1500
-python3 examples/aditof/python/adcam_player.py --captureMode 2 --capture 1 --maxMipi 1000
-python3 examples/aditof/python/adcam_player.py --captureMode 3 --capture 1 --maxMipi 1000
+python3 examples/adi/aditof/python/adcam_player.py --captureMode 2 --capture 1 --maxMipi 1500
+python3 examples/adi/aditof/python/adcam_player.py --captureMode 3 --capture 1 --maxMipi 1500
+python3 examples/adi/aditof/python/adcam_player.py --captureMode 2 --capture 1 --maxMipi 1000
+python3 examples/adi/aditof/python/adcam_player.py --captureMode 3 --capture 1 --maxMipi 1000
 ```
 
 #### ADTF3066 - VGA modes (512x640, 1 / 1.5 Gbps MIPI)
@@ -376,9 +376,9 @@ adcam_player --captureMode 1 --capture 1 --maxMipi 1500
 adcam_player --captureMode 7 --capture 1 --maxMipi 1500
 
 # Python
-python3 examples/aditof/python/adcam_player.py --captureMode 0 --capture 1 --maxMipi 1500
-python3 examples/aditof/python/adcam_player.py --captureMode 1 --capture 1 --maxMipi 1500
-python3 examples/aditof/python/adcam_player.py --captureMode 7 --capture 1 --maxMipi 1500
+python3 examples/adi/aditof/python/adcam_player.py --captureMode 0 --capture 1 --maxMipi 1500
+python3 examples/adi/aditof/python/adcam_player.py --captureMode 1 --capture 1 --maxMipi 1500
+python3 examples/adi/aditof/python/adcam_player.py --captureMode 7 --capture 1 --maxMipi 1500
 ```
 
 #### ADTF3066 - QVGA modes (256x320, 1 / 1.5 Gbps MIPI)
@@ -390,9 +390,9 @@ adcam_player --captureMode 6 --capture 1 --maxMipi 1500
 adcam_player --captureMode 8 --capture 1 --maxMipi 1500
 
 # Python
-python3 examples/aditof/python/adcam_player.py --captureMode 3 --capture 1 --maxMipi 1500
-python3 examples/aditof/python/adcam_player.py --captureMode 6 --capture 1 --maxMipi 1500
-python3 examples/aditof/python/adcam_player.py --captureMode 8 --capture 1 --maxMipi 1500
+python3 examples/adi/aditof/python/adcam_player.py --captureMode 3 --capture 1 --maxMipi 1500
+python3 examples/adi/aditof/python/adcam_player.py --captureMode 6 --capture 1 --maxMipi 1500
+python3 examples/adi/aditof/python/adcam_player.py --captureMode 8 --capture 1 --maxMipi 1500
 ```
 
 #### Firmware update
@@ -402,7 +402,7 @@ python3 examples/aditof/python/adcam_player.py --captureMode 8 --capture 1 --max
 adcam_player --firmwareUpdate adi_manifest.yaml
 
 # Python
-python3 examples/aditof/python/adcam_player.py --firmwareUpdate adi_manifest.yaml
+python3 examples/adi/aditof/python/adcam_player.py --firmwareUpdate adi_manifest.yaml
 ```
 
 ---

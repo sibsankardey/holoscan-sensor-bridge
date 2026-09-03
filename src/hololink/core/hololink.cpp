@@ -1120,7 +1120,7 @@ public:
         const std::shared_ptr<Timeout>& in_timeout) override
     {
         const uint32_t write_command_count = write_command_bytes.size();
-        if (write_command_count >= 16) { // available bits in num_bytes2
+        if (write_command_count >= 64) { // available bits in num_bytes2
             throw std::runtime_error(
                 fmt::format("Size of combined write_command_bytes and write_data_bytes is too large: "
                             "\"{}\", has to be less than 16",
