@@ -1,5 +1,6 @@
 /*
  * SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-FileCopyrightText: Portions Copyright (c) 2026 Analog Devices, Inc.
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -454,8 +455,8 @@ int main(int argc, char** argv)
 
         std::shared_ptr<hololink::Hololink> hololink = hololink_channel.hololink();
         hololink->start();
-	//commenting out reset to avoid other application using hololink to stop working
-        //hololink->reset();
+        // commenting out reset to avoid other application using hololink to stop working
+        // hololink->reset();
 
         auto i2s = std::make_shared<LegacyI2s>(hololink, i2s_address);
 

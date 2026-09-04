@@ -17,14 +17,14 @@ Current support includes:
 
 # Supported Hardware
 
-| Category | Part Number | Status | Description |
-|-----------|-------------|----------|-------------|
-| 3D Depth Camera | **ADCAM3175-2M-EBZ** | ✅ Supported | Time-of-Flight (ToF) 3D depth camera |
-| Industrial IMU | **ADIS16505** | ✅ Supported | Precision industrial inertial measurement unit |
-| Industrial IMU | **ADIS16607** | 🚧 Upcoming | Next-generation industrial inertial measurement unit |
-| A2B Audio | **AD2428 + AD2427** | ✅ Supported | Multi-channel microphone acquisition and transport |
-| Sensor Connectivity | Holoscan Sensor Bridge | ✅ Supported | FPGA-based sensor connectivity platform |
-| AI Compute | NVIDIA Jetson / IGX / Thor | ✅ Supported | GPU accelerated AI processing platforms |
+| Category | Part Number | Status | Description | Product |
+|-----------|-------------|----------|-------------|-------------|
+| 3D Depth Camera | **ADCAM3175-2M-EBZ** | ✅ Supported | Time-of-Flight (ToF) 3D depth camera | https://www.analog.com/en/products/adtf3175.html |
+| Industrial IMU | **ADIS16505** | ✅ Supported | Precision industrial inertial measurement unit | https://www.analog.com/en/products/adis16505.html |
+| Industrial IMU | **ADIS16607** | 🚧 Upcoming | Next-generation industrial inertial measurement unit | https://www.analog.com/en/products/adis16607.html |
+| A2B Audio | **AD2428 + AD2427** | ✅ Supported | Multi-channel microphone acquisition and transport | https://www.analog.com/en/products/ad2428.html |
+| Sensor Connectivity | Holoscan Sensor Bridge | ✅ Supported | FPGA-based sensor connectivity platform | Lattice & Microchip |
+| AI Compute | NVIDIA Jetson / IGX / Thor | ✅ Supported | GPU accelerated AI processing platforms | Jetson Thor/AGX Orix/ IGX/ DGX Spark |
 
 ---
 
@@ -300,6 +300,13 @@ Typical capabilities:
 
 # Build
 
+Same as docker build as pubmished in Holoscan Sensor Bridge github
+
+```bash
+docker/build.sh --<igpu or dgpu>
+```
+or
+
 From the root of the Holoscan Sensor Bridge workspace:
 
 ```bash
@@ -332,7 +339,7 @@ python adcam_player.py
 python adi_imu_ros2.py
 ```
 
-Visualization:
+Visualization (run in a separate shell and not in the container shell):
 
 ```bash
 ros2 launch adi_imu_visualization.launch.py
@@ -341,7 +348,7 @@ ros2 launch adi_imu_visualization.launch.py
 ## A2B Audio Visualization
 
 ```bash
-audio_viz
+audio_viz_display
 ```
 
 ---
@@ -391,11 +398,7 @@ This enables development of advanced perception systems for:
 - Edge AI
 - Autonomous Systems
 
----
-
-# ADI + NVIDIA
-
-These examples illustrate how Analog Devices sensing technologies extend NVIDIA Holoscan beyond traditional camera-centric AI workloads by enabling:
+These examples illustrate how Analog Devices sensing technologies are enabled in NVIDIA Holoscan AI workloads by enabling:
 
 - 3D Depth Perception
 - Industrial Inertial Sensing
