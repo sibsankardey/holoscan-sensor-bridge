@@ -489,10 +489,7 @@ class Imx477:
             )
         self._img_flip = img_flip
         self._hololink = hololink_channel.hololink()
-        if camera_id == 0:
-            self._i2c = self._hololink.get_i2c(hololink_module.CAM_I2C_BUS)
-        else:
-            self._i2c = self._hololink.get_i2c(hololink_module.CAM_I2C_BUS + 1)
+        self._i2c = self._hololink.get_i2c(hololink_module.CAM_I2C_BUS + camera_id)
         self._cam_id = camera_id
         if resolution == "1080p":
             self._width = 1920

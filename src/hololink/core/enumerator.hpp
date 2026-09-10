@@ -43,6 +43,7 @@ const std::string HOLOLINK_LITE_UUID = "889b7ce3-65a5-4247-8b05-4ff1904c3359";
 const std::string HOLOLINK_NANO_UUID = "d0f015e0-93b6-4473-b7d1-7dbd01cbeab5";
 const std::string HOLOLINK_100G_UUID = "7a377bf7-76cb-4756-a4c5-7dddaed8354b";
 const std::string MICROCHIP_POLARFIRE_UUID = "ed6a9292-debf-40ac-b603-a24e025309c1";
+const std::string MICROCHIP_POLARFIRE_R2_UUID = "48484948-5045-4848-4853-564845484850";
 const std::string LEOPARD_EAGLE_UUID = "f1627640-b4dc-48af-a360-c55b09b3d230";
 const std::string TT_DA326_UUID = "9957a9ac-36b5-4518-83ec-5d514aecb750";
 

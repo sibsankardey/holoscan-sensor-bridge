@@ -163,6 +163,8 @@ namespace {
             metadata["fpga_uuid"] = HOLOLINK_100G_UUID;
         } else if (board_id == MICROCHIP_POLARFIRE_BOARD_ID) {
             metadata["fpga_uuid"] = MICROCHIP_POLARFIRE_UUID;
+        } else if (board_id == MICROCHIP_POLARFIRE_BOARD_R2_ID) {
+            metadata["fpga_uuid"] = MICROCHIP_POLARFIRE_R2_UUID;
         } else if (board_id == LEOPARD_EAGLE_BOARD_ID) {
             metadata["fpga_uuid"] = LEOPARD_EAGLE_UUID;
         } else if (board_id == TT_DA326_BOARD_ID) {
@@ -706,6 +708,14 @@ void Enumerator::configure_default_enumeration_strategies()
     auto microchip_polarfire_enumeration_strategy = std::make_shared<BasicEnumerationStrategy>(microchip_polarfire_metadata,
         microchip_polarfire_total_sensors, microchip_polarfire_total_dataplanes, microchip_polarfire_sifs_per_sensor);
     (*strategies)[MICROCHIP_POLARFIRE_UUID] = microchip_polarfire_enumeration_strategy;
+
+    Metadata microchip_polarfire_r2_metadata;
+    microchip_polarfire_r2_metadata["board_description"] = "Microchip Polarfire R2";
+    microchip_polarfire_r2_metadata["gpio_pin_count"] = 16;
+    unsigned microchip_polarfire_r2_total_sensors = 4;
+    auto microchip_polarfire_r2_enumeration_strategy = std::make_shared<BasicEnumerationStrategy>(microchip_polarfire_r2_metadata,
+        microchip_polarfire_r2_total_sensors, microchip_polarfire_total_dataplanes, microchip_polarfire_sifs_per_sensor);
+    (*strategies)[MICROCHIP_POLARFIRE_R2_UUID] = microchip_polarfire_r2_enumeration_strategy;
 
     auto leopard_eagle_enumeration_strategy = std::make_shared<LeopardEagleEnumerationStrategy>();
     (*strategies)[LEOPARD_EAGLE_UUID] = leopard_eagle_enumeration_strategy;

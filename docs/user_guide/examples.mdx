@@ -131,6 +131,21 @@ lastly, running SIPL accelerated network python example on AGX Thor or IGX T5000
 $ python3 ./examples/sipl_player.py --json-config ./examples/sipl_config/vb1940_single.json
 ```
 
+## IMX477 player example
+
+To run the video player IMX477 example on a ConnectX-enabled host, in the demo
+container, run
+
+```sh
+  $ python3 examples/imx477_player.py
+```
+
+for unaccelerated hosts,
+
+```sh
+$ python3 examples/linux_imx477_player.py
+```
+
 ## MAX96716A deserializer player example
 
 The TauroTech DA326 sensor bridge board has an on-board Analog Devices MAX96716A GMSL
@@ -333,6 +348,12 @@ for unaccelerated configurations with IMX274 camera,
 $ python3 examples/linux_tao_peoplenet.py
 ```
 
+for unaccelerated configurations with IMX477 camera,
+
+```sh
+$ python3 examples/linux_tao_peoplenet_imx477.py
+```
+
 lastly, running SIPL accelerated network python example on AGX Thor with LI VB1940
 camera:
 
@@ -385,6 +406,20 @@ container this way:
 $ python3 examples/linux_body_pose_estimation.py
 ```
 
+for ConnectX-accelerated hosts, within the sensor bridge demo container, launch the Body
+Pose estimation with IMX477 camera:
+
+```sh
+$ python3 examples/body_pose_estimation_imx477.py
+```
+
+for unaccelerated hosts with IMX477 camera, launch the Body Pose estimation example
+within the demo container this way:
+
+```sh
+$ python3 examples/linux_body_pose_estimation_imx477.py
+```
+
 lastly, running SIPL accelerated network python example on AGX Thor with Li VB1940
 camera:
 
@@ -399,7 +434,7 @@ body pose net model. For more information about this application, look
 
 Press Ctrl/C to exit.
 
-## Running the Stereo IMX274, Leopard imaging Li VB1940 Eagle, and TauroTech DA326 Hawk examples
+## Running the Stereo IMX274, Stereo IMX477, Leopard imaging Li VB1940 Eagle, and TauroTech DA326 Hawk examples
 
 The `stereo_imx274_player.py` example shows two independent pipelines, one for each
 camera on the dual-camera module. Make sure that
@@ -426,6 +461,18 @@ Unaccelerated hosts with IMX274:
 
 ```sh
 $ python3 examples/linux_single_network_stereo_imx274_player.py
+```
+
+ConnectX-accelerated hosts with IMX477:
+
+```sh
+$ python3 examples/single_network_stereo_imx477_player.py
+```
+
+Unaccelerated hosts with IMX477:
+
+```sh
+$ python3 examples/linux_single_network_stereo_imx477_player.py
 ```
 
 ConnectX-accelerated hosts with Li VB1940 Eagle:

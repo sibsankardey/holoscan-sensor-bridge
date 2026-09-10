@@ -77,25 +77,29 @@ port labelled "SFP+ 1" to the unconnected QSFP port on the back of IGX.
 Follow the instructions in the [setup page](setup.mdx) to configure your host system.
 
 </Tab>
-<Tab title="Microchip MPF200-ETH-SENSOR-BRIDGE">
+<Tab title="Microchip MPF200-ETH-SENSOR-BRIDGE-R2">
 
-Here are instructions to set up the Microchip MPF200-ETH-SENSOR-BRIDGE device and
+Here are instructions to set up the Microchip MPF200-ETH-SENSOR-BRIDGE-R2 device and
 connect it to the IGX and Jetson AGX Orin devkits.
 
 ## The Holoscan Sensor Bridge board
 
 <img src="microchip_board.png" alt="Holoscan sensor bridge board" width="100%"/>
 
-Microchip MPF200-ETH-SENSOR-BRIDGE has the following connectors:
+Microchip MPF200-ETH-SENSOR-BRIDGE-R2 has the following connectors:
 
 1. **SFP+ ports** - Two 10Gbps Ethernet ports which connect to the host system.
-1. **Camera connector** - This connector is used to interface with a camera (e.g.
-   IMX477).
-1. **Power switch** - the sensor bridge device is powered by using a 12V power supply
-   with a minimum of 12V/2A connected to this port. Follow the instructions in the
-   [setup page](setup.mdx) to configure your host system.
+1. **Jetson camera connector J4** - This connector is used to interface with the Jetson
+   Adapter Card which supports up to 4x 22-pin MIPI CSI-2 modules.
+1. **12V DC Barrel Jack J10** - the sensor bridge device can be powered by using a 12V
+   power supply with a minimum of 12V/2A connected to this port. If using 12V Barrel
+   Jack for powering the sensor bridge device ensure that J36 is closed on pins 1 and
+   2(`5P0V_REG`). Follow the instructions in the [setup page](setup.mdx) to configure
+   your host system.
+1. **USB-C Power/UART J8** - alternatively the sensor bridge device can be powered by
+   using USB-C with the J36 jumper closed on pins 2 and 3(`USB_C_5V`)
 
-Microchip MPF200-ETH-SENSOR-BRIDGE reference applications are currently using the
+Microchip MPF200-ETH-SENSOR-BRIDGE-R2 reference applications are currently using the
 [IMX477 camera](https://www.arducam.com/product/12-3mp-477m-hq-camera-module-with-135d-m12-wide-angle-lens-for-nvidia-jetson-nano-xavier-nx-and-orin-nx-agx-orin/)
 module:
 
@@ -117,7 +121,7 @@ The camera module is mounted on the sensor bridge device in the following manner
 1. Use the power switch to power up the board.
 
 1. For more details see the
-   [Microchip MPF200-ETH-SENSOR-BRIDGE](https://www.microchip.com/en-us/products/fpgas-and-plds/boards-and-kits/ethernet-sensor-bridge)
+   [Microchip MPF200-ETH-SENSOR-BRIDGE-R2](https://www.microchip.com/en-us/products/fpgas-and-plds/boards-and-kits/ethernet-sensor-bridge)
 
 Follow the instructions in the [setup page](setup.mdx) to configure your host system.
 

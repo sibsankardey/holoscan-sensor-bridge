@@ -152,6 +152,7 @@ constexpr uint32_t HOLOLINK_100G_BOARD_ID = 3u;
 constexpr uint32_t MICROCHIP_POLARFIRE_BOARD_ID = 4u;
 constexpr uint32_t HOLOLINK_NANO_BOARD_ID = 5u;
 constexpr uint32_t LEOPARD_EAGLE_BOARD_ID = 7u;
+constexpr uint32_t MICROCHIP_POLARFIRE_BOARD_R2_ID = 9u;
 constexpr uint32_t TT_DA326_BOARD_ID = 10u;
 
 // Other constants

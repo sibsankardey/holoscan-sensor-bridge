@@ -192,27 +192,27 @@ class HSBPolarFireEsbFlasherBase(ABC):
     """Base class for HSB PolarFire ESB flashers."""
 
     FPGA_UUID = "ed6a9292-debf-40ac-b603-a24e025309c1"
+    FPGA_UUID_R2 = "48484948-5045-4848-4853-564845484850"
 
-    VERSION: int
+    MIN_VERSION: int = 0
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         if not getattr(cls, "__abstractmethods__", None) and not isinstance(
-            cls.__dict__.get("VERSION"), int
+            cls.__dict__.get("MIN_VERSION"), int
         ):
-            raise TypeError(f"{cls.__name__} must define a VERSION class attribute")
+            raise TypeError(f"{cls.__name__} must define a MIN_VERSION class attribute")
 
-    def __init__(self, ip_address: str, mac_address: str):
+    def __init__(self, ip_address: str, mac_address: str, version: int):
         self.ip_address = ip_address
         self.mac_address = mac_address
+        self.version = version
 
     @classmethod
     def supports(cls, fpga_uuid: str, version: int) -> bool:
-        if 0x2407 <= version <= 0x2506:
-            version = 0x2412
-        elif 0x2507 <= version:
-            version = 0x2510
-        return fpga_uuid == cls.FPGA_UUID and version == cls.VERSION
+        return (
+            fpga_uuid in [cls.FPGA_UUID, cls.FPGA_UUID_R2]
+        ) and version >= cls.MIN_VERSION
 
     @abstractmethod
     def flash(self, cpnx_path: str) -> bool:
@@ -230,7 +230,7 @@ class HSBPolarFireEsbFlasherBase(ABC):
 class HSBPolarFireEsbFlasherTraditional(HSBPolarFireEsbFlasherBase):
     """Flasher for HSB PolarFire ESB traditional versions."""
 
-    VERSION = 0x2412
+    MIN_VERSION = 0x2412
 
     def flash(self, cpnx_path: str) -> bool:
         return _flash_polarfire_esb(self.ip_address, cpnx_path, True)
@@ -244,16 +244,17 @@ class HSBPolarFireEsbFlasherTraditional(HSBPolarFireEsbFlasherBase):
 class HSBPolarFireEsbFlasherCurrent(HSBPolarFireEsbFlasherBase):
     """Flasher for HSB PolarFire ESB current versions."""
 
-    VERSION = 0x2510
+    MIN_VERSION = 0x2510
 
     def flash(self, cpnx_path: str) -> bool:
         return _flash_polarfire_esb(self.ip_address, cpnx_path, False)
 
 
-FLASH_STRATEGIES = [
-    HSBPolarFireEsbFlasherTraditional,
-    HSBPolarFireEsbFlasherCurrent,
-]
+FLASH_STRATEGIES = sorted(
+    [HSBPolarFireEsbFlasherTraditional, HSBPolarFireEsbFlasherCurrent],
+    key=lambda c: c.MIN_VERSION,
+    reverse=True,
+)
 
 
 def get_flasher(
@@ -261,7 +262,9 @@ def get_flasher(
 ) -> Optional[HSBPolarFireEsbFlasherBase]:
     for flasher_cls in FLASH_STRATEGIES:
         if flasher_cls.supports(fpga_uuid, version):
-            return flasher_cls(ip_address=ip_address, mac_address=mac_address)
+            return flasher_cls(
+                ip_address=ip_address, mac_address=mac_address, version=version
+            )
     return None
 
 
