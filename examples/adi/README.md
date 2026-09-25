@@ -21,7 +21,7 @@ Current support includes:
 |-----------|-------------|----------|-------------|-------------|
 | 3D Depth Camera | **ADCAM3175-2M-EBZ** | ✅ Supported | Time-of-Flight (ToF) 3D depth camera | https://www.analog.com/en/products/adtf3175.html |
 | Industrial IMU | **ADIS16505** | ✅ Supported | Precision industrial inertial measurement unit | https://www.analog.com/en/products/adis16505.html |
-| Industrial IMU | **ADIS16607** | 🚧 Upcoming | Next-generation industrial inertial measurement unit | https://www.analog.com/en/products/adis16607.html |
+| Industrial IMU | **ADIS16607** | ✅ Supported | Next-generation industrial inertial measurement unit | https://www.analog.com/en/products/adis16607.html |
 | A2B Audio | **AD2428 + AD2427** | ✅ Supported | Multi-channel microphone acquisition and transport | https://www.analog.com/en/products/ad2428.html |
 | Sensor Connectivity | Holoscan Sensor Bridge | ✅ Supported | FPGA-based sensor connectivity platform | Lattice & Microchip |
 | AI Compute | NVIDIA Jetson / IGX / Thor | ✅ Supported | GPU accelerated AI processing platforms | Jetson Thor/AGX Orix/ IGX/ DGX Spark |
