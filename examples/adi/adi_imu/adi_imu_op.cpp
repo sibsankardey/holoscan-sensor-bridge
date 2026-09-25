@@ -94,8 +94,8 @@ void sync_out_configure(std::shared_ptr<hololink::Hololink> hololink, int freq)
     hololink->write_uint32(VSYNC_BASE + VSYNC_REG_START_LEVEL, 0 & 0x1u);
     hololink->write_uint32(VSYNC_BASE + VSYNC_REG_EXP_NS, 100000 & 0x00FFFFFFu);
 
-    // 3) gpio_mux_en: always default 0 (no GPIO mux routing)
-    hololink->write_uint32(VSYNC_BASE + VSYNC_REG_GPIO_MUX, 0x0u);
+    // 3) gpio_mux_en: always default OUT (no GPIO mux routing)
+    hololink->write_uint32(VSYNC_BASE + VSYNC_REG_GPIO_MUX, 0xF);
 
     // 4) Readback fence to drain posted writes before enabling
     (void)hololink->read_uint32(VSYNC_BASE + VSYNC_REG_MODE);
